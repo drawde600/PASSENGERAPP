@@ -1,0 +1,2006 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Project Para - On-Board Tracking</title>
+    <!-- Leaflet CSS for OpenStreetMap -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
+    <style>
+        :root {
+            --primary-gradient-start: #4a6bff;
+            --primary-gradient-end: #39c2ff;
+            --dark-bg: #1e2130;
+            --darker-bg: #171924;
+            --card-bg: rgba(30, 33, 48, 0.85);
+            --button-color: #e53935;
+            --text-color: #ffffff;
+            --secondary-text: #a0a7b8;
+            --accent-blue: #39c2ff;
+            --accent-green: #4cd964;
+            --border-radius: 12px;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        body {
+            background-color: var(--darker-bg);
+            color: var(--text-color);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .app-container {
+            width: 100%;
+            max-width: 380px;
+            background: linear-gradient(to bottom, var(--dark-bg), var(--purple-bg));
+            border-radius: var(--border-radius);
+            overflow: hidden;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+            height: 788px;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+        }
+        
+        .header {
+            background: var(--darker-bg);
+            padding: 16px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            color: white;
+            z-index: 2;
+        }
+        
+        .header .logo {
+            font-size: 18px;
+            font-weight: 600;
+            color: var(--text-color);
+        }
+        
+        .header .logo-icon {
+            background: linear-gradient(to right, var(--primary-gradient-start), var(--primary-gradient-end));
+            border-radius: 8px;
+            width: 36px;
+            height: 36px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 12px;
+        }
+
+        .header .refresh-icon {
+            background: var(--accent-blue);
+            border-radius: 8px;
+            width: 36px;
+            height: 36px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: transform 0.5s ease;
+        }
+        
+        .map-container {
+            height: 240px;
+            position: relative;
+            overflow: hidden;
+            z-index: 1;
+        }
+        
+        #map {
+            width: 100%;
+            height: 100%;
+        }
+        
+        .controls-container {
+            position: absolute;
+            bottom: 16px;
+            right: 16px;
+            background-color: rgba(255, 255, 255, 0.2);
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            z-index: 2;
+        }
+        
+        .journey-info {
+            padding: 20px;
+            background-color: var(--purple-bg);
+        }
+        
+        .route-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        
+        .route-number {
+            font-size: 18px;
+            font-weight: 600;
+        }
+        
+        .route-status {
+            background-color: var(--accent-green);
+            color: white;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: 500;
+        }
+        
+        .journey-stats {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 20px;
+        }
+        
+        .stat-item {
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .stat-label {
+            font-size: 14px;
+            color: var(--secondary-text);
+            margin-bottom: 4px;
+        }
+        
+        .stat-value {
+            font-size: 18px;
+            font-weight: 600;
+        }
+        
+        .reminder-container {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 14px 16px;
+            background-color: rgba(255, 255, 255, 0.1);
+            border-radius: var(--border-radius);
+            margin-bottom: 20px;
+        }
+        
+        .reminder-left {
+            display: flex;
+            align-items: center;
+        }
+        
+        .reminder-icon {
+            margin-right: 12px;
+        }
+        
+        .reminder-text {
+            font-size: 16px;
+        }
+        
+        .reminder-time {
+            font-size: 16px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+        }
+        
+        .reminder-time .chevron {
+            margin-left: 8px;
+        }
+        
+        .end-journey-btn {
+            width: 100%;
+            padding: 16px;
+            border-radius: var(--border-radius);
+            border: none;
+            background-color: var(--button-color);
+            color: white;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        
+        .end-journey-btn:hover {
+            background-color: #d32f2f;
+        }
+        
+        /* Timer modal */
+        .timer-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(0, 0, 0, 0.7);
+            z-index: 100;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .timer-content {
+            background-color: var(--dark-bg);
+            border-radius: var(--border-radius);
+            width: 90%;
+            max-width: 340px;
+            padding: 24px;
+        }
+        
+        .timer-title {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        
+        .timer-options {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            margin-bottom: 24px;
+            justify-content: center;
+        }
+        
+        .timer-option {
+            padding: 10px 16px;
+            background-color: rgba(255, 255, 255, 0.1);
+            border-radius: 20px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        
+        .timer-option.active {
+            background-color: var(--primary-gradient-end);
+        }
+        
+        .timer-buttons {
+            display: flex;
+            justify-content: space-between;
+        }
+        
+        .timer-btn {
+            flex: 1;
+            padding: 12px;
+            border-radius: var(--border-radius);
+            border: none;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        
+        .timer-cancel {
+            background-color: transparent;
+            color: var(--text-color);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            margin-right: 12px;
+        }
+        
+        .timer-save {
+            background-color: var(--primary-gradient-end);
+            color: white;
+        }
+        
+        /* Custom timer input */
+        .custom-timer {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 24px;
+        }
+        
+        .custom-timer input {
+            width: 80px;
+            background-color: rgba(255, 255, 255, 0.1);
+            border: none;
+            color: white;
+            font-size: 24px;
+            font-weight: 600;
+            padding: 8px;
+            border-radius: 8px;
+            text-align: center;
+            margin: 0 12px;
+        }
+        
+        .custom-timer button {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            border: none;
+            background-color: rgba(255, 255, 255, 0.1);
+            color: white;
+            font-size: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+        }
+        
+        /* Custom bus icon styling */
+        .bus-icon {
+            text-align: center;
+        }
+        
+        /* Dark map style overrides */
+        .leaflet-tile {
+            filter: brightness(0.6) invert(1) contrast(3) hue-rotate(200deg) saturate(0.3) brightness(0.7);
+        }
+        
+        .leaflet-container {
+            background: #303035;
+        }
+        
+        /* Custom notification */
+        .notification {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: rgba(0, 137, 123, 0.9);
+            color: white;
+            padding: 12px 20px;
+            border-radius: 24px;
+            z-index: 1000;
+            transition: opacity 0.5s;
+        }
+        
+        .arrival-notification {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: rgba(0, 137, 123, 0.95);
+            color: white;
+            padding: 20px;
+            border-radius: 12px;
+            z-index: 1000;
+            text-align: center;
+            width: 80%;
+            max-width: 300px;
+        }
+
+        /* Add to your existing style section */
+        /* Remove or comment out these CSS classes */
+        /* Delete or comment out these lines:
+        .user-location-marker {
+            animation: pulse 2s infinite;
+        }
+
+        .bus-location-marker {
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.2); opacity: 0.8; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+        */
+
+        /* Add to your existing style section */
+        .arrival-notification {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: var(--primary-gradient-start);
+            color: white;
+            padding: 24px;
+            border-radius: var(--border-radius);
+            text-align: center;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+            z-index: 1000;
+            animation: fadeIn 0.3s ease-out;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translate(-50%, -40%); }
+            to { opacity: 1; transform: translate(-50%, -50%); }
+        }
+
+        .droppoint-container {
+            margin-bottom: 20px;
+        }
+
+        .droppoint-label {
+            font-size: 14px;
+            color: var(--secondary-text);
+            margin-bottom: 8px;
+        }
+
+        .droppoint-select {
+            width: 100%;
+            padding: 12px;
+            background-color: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: var(--border-radius);
+            color: var(--text-color);
+            font-size: 16px;
+            cursor: pointer;
+            appearance: none;
+            -webkit-appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg width='24' height='24' viewBox='0 0 24 24' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M6 9L12 15L18 9' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 12px center;
+        }
+
+        .droppoint-select:focus {
+            outline: none;
+            border-color: var(--primary-gradient-end);
+        }
+
+        .droppoint-select option {
+            background-color: var(--dark-bg);
+            color: var(--text-color);
+        }
+
+        .confirm-droppoint-btn {
+            width: 100%;
+            padding: 14px;
+            background: linear-gradient(to right, var(--primary-gradient-start), var(--primary-gradient-end));
+            border: none;
+            border-radius: var(--border-radius);
+            color: var(--text-color);
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: opacity 0.2s, transform 0.2s;
+            margin-top: 12px;
+            opacity: 0.7;
+        }
+
+        .confirm-droppoint-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .confirm-droppoint-btn:not(:disabled):hover {
+            opacity: 1;
+            transform: translateY(-1px);
+        }
+
+        .confirm-droppoint-btn:not(:disabled):active {
+            transform: translateY(0);
+        }
+
+        .alert-driver-btn {
+            width: 100%;
+            padding: 16px;
+            border-radius: var(--border-radius);
+            border: none;
+            background-color: var(--accent-blue);
+            color: white;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background-color 0.2s;
+            margin-bottom: 12px;
+        }
+        
+        .alert-driver-btn:hover {
+            background-color: #2196f3;
+        }
+    </style>
+    <!-- Add this before your main script -->
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+</head>
+<body>
+    <div class="app-container">
+        <div class="header">
+    <div class="back-button" onclick="window.location.href='viewmap.html'">
+        <div class="logo-icon">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M19 12H5" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M12 19L5 12L12 5" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+        </div>
+    </div>
+    <div class="logo">Project Para</div>
+    <div class="refresh-icon" id="refreshBtn">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M1 4V10H7" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M23 20V14H17" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M20.49 9.00001C19.9828 7.56329 19.1209 6.28067 17.9845 5.27102C16.8482 4.26137 15.4745 3.56428 14 3.24601C12.5255 2.92774 10.9998 3.00001 9.56 3.45636C8.12022 3.91271 6.82196 4.73765 5.78 5.84001L1 10M23 14L18.22 18.16C17.1781 19.2624 15.8798 20.0873 14.44 20.5436C13.0002 21 11.4745 21.0722 10 20.754C8.52552 20.4357 7.15183 19.7386 6.01547 18.729C4.87911 17.7193 4.01718 16.4367 3.51 15" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+    </div>
+</div>
+        
+        <div class="map-container">
+            <!-- OpenStreetMap will be loaded here -->
+            <div id="map"></div>
+            
+            <!-- Map controls -->
+            <div class="controls-container" id="mapControl">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M12 22C17.5228 22 22 17.5228 22 12C22 6.47715 17.5228 2 12 2C6.47715 2 2 6.47715 2 12C2 17.5228 6.47715 22 12 22Z" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    <path d="M12 8L12 16" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    <path d="M8 12L16 12" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+            </div>
+        </div>
+        
+        <div class="journey-info">
+            <div class="route-bar">
+                <div class="route-number">Route 42B</div>
+                <div class="route-status">On Board</div>
+            </div>
+            
+            <div class="journey-stats">
+                <div class="stat-item">
+                    <div class="stat-label">ETA</div>
+                    <div class="stat-value">15 mins</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-label">Distance</div>
+                    <div class="stat-value">3.2 km</div>
+                </div>
+            </div>
+            
+            <div class="droppoint-container">
+                <div class="droppoint-label">Select Drop Point</div>
+                <select id="dropPointSelect" class="droppoint-select">
+                    <option value="">Select your destination...</option>
+                </select>
+            </div>
+            
+            <div class="droppoint-container">
+                <button id="confirmDropPoint" class="confirm-droppoint-btn" disabled>
+                    Confirm Destination
+                </button>
+            </div>
+
+            <div class="reminder-container" id="reminderContainer">
+    <div class="reminder-left">
+        <div class="reminder-icon">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z" stroke="white" stroke-width="2"/>
+            </svg>
+        </div>
+        <div class="reminder-text">Distance Alert</div>
+    </div>
+    <div class="reminder-time" id="reminderDistance">
+        <span>500m</span>
+        <div class="chevron">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M9 18L15 12L9 6" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+        </div>
+    </div>
+</div>
+
+            <!-- Add the new alert driver button here -->
+            <button class="alert-driver-btn" id="alertDriverBtn">
+                Alert Driver
+            </button>
+
+            <button class="end-journey-btn" id="endJourneyBtn">End Journey</button>
+        </div>
+        
+        <!-- Timer setting modal -->
+        <div class="timer-modal" id="distanceModal">
+    <div class="timer-content">
+        <div class="timer-title">Set Distance Alert</div>
+        
+        <div class="timer-options">
+            <div class="timer-option" data-distance="100">100m</div>
+            <div class="timer-option" data-distance="250">250m</div>
+            <div class="timer-option" data-distance="500">500m</div>
+            <div class="timer-option" data-distance="1000">1km</div>
+        </div>
+        
+        <div class="custom-timer">
+            <button id="decreaseDistance">-</button>
+            <input type="number" id="customDistance" min="50" max="5000" value="500" step="50">
+            <button id="increaseDistance">+</button>
+            <span style="margin-left: 8px; color: var(--text-color);">meters</span>
+        </div>
+        
+        <div class="timer-buttons">
+            <button class="timer-btn timer-cancel" id="cancelDistance">Cancel</button>
+            <button class="timer-btn timer-save" id="saveDistance">Save</button>
+        </div>
+    </div>
+</div>
+    </div>
+
+    <!-- Leaflet JS for OpenStreetMap -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script>
+    // Single Supabase initialization
+    const supabaseUrl = 'https://jeszxshbzmnxdoqjltuk.supabase.co';
+    const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Implc3p4c2hiem1ueGRvcWpsdHVrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDA4MzM0NjIsImV4cCI6MjA1NjQwOTQ2Mn0.FgZmXxDX00_9OLyLgFM_dyrPpb1eISeIte9s1edLPcE';
+    const supabase = window.supabase.createClient(supabaseUrl, supabaseKey);
+
+    // Global variables
+    let map;
+    let dropPointMarker = null;
+    // busMarker is already declared globally
+    let distanceUpdateInterval;
+
+    // Initialize map when DOM is ready
+    document.addEventListener('DOMContentLoaded', async function() {
+        // Initialize map
+        map = L.map('map').setView([15.3267, 120.0830], 9);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; OpenStreetMap contributors'
+        }).addTo(map);
+
+        // Initialize UI elements
+        initializeUI();
+        
+        // Start location tracking
+        await startLocationTracking();
+        
+        // Fetch drop points
+        await fetchDropPoints();
+
+        // Setup event listeners
+        setupEventListeners();
+    });
+
+    function setupEventListeners() {
+        // Refresh button
+        document.getElementById('refreshBtn').addEventListener('click', handleRefresh);
+        
+        // Drop point selection
+        document.getElementById('dropPointSelect').addEventListener('change', handleDropPointSelection);
+        
+        // Confirm button
+        document.getElementById('confirmDropPoint').addEventListener('click', handleDropPointConfirmation);
+        
+        // Timer related listeners
+        setupTimerListeners();
+        
+        // End journey button
+        document.getElementById('endJourneyBtn').addEventListener('click', handleEndJourney);
+    }
+
+    function handleEndJourney() {
+        // Clear intervals and stored data
+        if (distanceUpdateInterval) {
+            clearInterval(distanceUpdateInterval);
+        }
+        sessionStorage.removeItem('onboardBusInfo');
+        window.location.href = 'viewmap.html';
+    }
+
+    async function handleRefresh() {
+        showNotification('Updating location...');
+        await startLocationTracking();
+    }
+
+    // Location tracking function
+    async function startLocationTracking() {
+        try {
+            const position = await requestLocationPermission();
+            if (!position) return;
+
+            const { latitude, longitude } = position.coords;
+            updateUserMarker(latitude, longitude);
+
+            // Start watching position
+            navigator.geolocation.watchPosition(
+                (position) => {
+                    updateUserMarker(position.coords.latitude, position.coords.longitude);
+                    updateDistanceCalculations();
+                },
+                (error) => {
+                    console.error('Location watching error:', error);
+                    showNotification('Location tracking error');
+                },
+                {
+                    enableHighAccuracy: true,
+                    timeout: 20000,
+                    maximumAge: 5000
+                }
+            );
+        } catch (error) {
+            console.error('Error starting location tracking:', error);
+            showNotification('Could not get your location');
+        }
+    }
+
+    // Add the rest of your helper functions here (updateUserMarker, calculateDistance, etc.)
+    // ...existing code for helper functions...
+
+    // Clean up on page unload
+    window.addEventListener('beforeunload', () => {
+        if (distanceUpdateInterval) {
+            clearInterval(distanceUpdateInterval);
+        }
+    });
+
+    // Global variables and icons
+    let userMarker = null;
+    // dropPointMarker is already declared globally
+    let busMarker = null;
+    let busInfo = null;
+
+    // Define icons at the top level
+    const userIcon = L.divIcon({
+        html: `
+            <div style="
+                background-color: white;
+                border-radius: 50%;
+                width: 32px;
+                height: 32px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                box-shadow: 0 0 4px rgba(0,0,0,0.3);
+                border: 2px solid #4CD964;">
+                <img src="passengericon.png" style="width: 20px; height: 20px;">
+            </div>`,
+        className: 'static-passenger-marker',
+        iconSize: [32, 32],
+        iconAnchor: [16, 16]
+    });
+
+    // Add this after the userIcon definition
+    const dropPointIcon = L.divIcon({
+        html: `
+            <div style="
+                background-color: white;
+                border-radius: 50%;
+                width: 32px;
+                height: 32px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                box-shadow: 0 0 4px rgba(0,0,0,0.3);
+                border: 2px solid var(--accent-blue);">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="var(--accent-blue)">
+                    <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/>
+                </svg>
+            </div>`,
+        className: 'drop-point-marker',
+        iconSize: [32, 32],
+        iconAnchor: [16, 32]
+    });
+
+    // Initialize UI elements when DOM is ready
+    function initializeUI() {
+        // Set initial stats with dashes
+        const etaElement = document.querySelector('.journey-stats .stat-item:nth-child(1) .stat-value');
+        const distanceElement = document.querySelector('.journey-stats .stat-item:nth-child(2) .stat-value');
+        const etaLabel = document.querySelector('.journey-stats .stat-item:nth-child(1) .stat-label');
+        const distanceLabel = document.querySelector('.journey-stats .stat-item:nth-child(2) .stat-label');
+
+        if (etaElement) etaElement.textContent = '---';
+        if (distanceElement) distanceElement.textContent = '---';
+        if (etaLabel) etaLabel.textContent = 'ETA to Drop Point';
+        if (distanceLabel) distanceLabel.textContent = 'Distance to Drop Point';
+
+        // Try to get bus info from session storage
+        try {
+            busInfo = JSON.parse(sessionStorage.getItem('onboardBusInfo'));
+            if (busInfo) {
+                updateUIElements(busInfo);
+            }
+        } catch (error) {
+            console.error('Error parsing bus info:', error);
+        }
+    }
+
+    // Location tracking functions
+    async function requestLocationPermission() {
+        return new Promise((resolve, reject) => {
+            if (!navigator.geolocation) {
+                showNotification('Geolocation is not supported by your browser');
+                reject(new Error('Geolocation not supported'));
+                return;
+            }
+
+            navigator.geolocation.getCurrentPosition(
+                position => resolve(position),
+                error => {
+                    console.error('Error getting location:', error);
+                    showNotification(`Location error: ${error.message}`);
+                    reject(error);
+                },
+                {
+                    enableHighAccuracy: true,
+                    timeout: 20000, // Increased timeout to 20 seconds
+                    maximumAge: 0
+                }
+            );
+        });
+    }
+
+    function updateUserMarker(latitude, longitude) {
+        if (!window.map) {
+            console.error('Map not initialized');
+            return;
+        }
+
+        try {
+            if (userMarker) {
+                userMarker.setLatLng([latitude, longitude]);
+            } else {
+                userMarker = L.marker([latitude, longitude], { icon: userIcon })
+                    .addTo(window.map)
+                    .bindPopup('Your location');
+            }
+
+            window.map.setView([latitude, longitude], 15);
+            console.log('User location updated:', latitude, longitude);
+        } catch (error) {
+            console.error('Error updating user marker:', error);
+        }
+    }
+
+    async function startLocationTracking() {
+        try {
+            const position = await requestLocationPermission();
+            const { latitude, longitude } = position.coords;
+            
+            updateUserMarker(latitude, longitude);
+            showNotification('Location found');
+
+            // Start watching position
+            const watchId = navigator.geolocation.watchPosition(
+                (position) => {
+                    const { latitude, longitude } = position.coords;
+                    updateUserMarker(latitude, longitude);
+                    
+                    if (window.dropPointMarker) {
+                        calculateDistanceToDropPoint(userMarker, window.dropPointMarker);
+                    }
+                },
+                (error) => {
+                    console.error('Location watching error:', error);
+                    showNotification('Location tracking error. Please check your GPS settings.');
+                },
+                {
+                    enableHighAccuracy: true,
+                    timeout: 20000,
+                    maximumAge: 5000
+                }
+            );
+
+            // Store watchId for cleanup
+            window.locationWatchId = watchId;
+        } catch (error) {
+            console.error('Error starting location tracking:', error);
+            showNotification('Could not get your location. Please check your GPS settings.');
+        }
+    }
+
+    // Update the initialization code
+    document.addEventListener('DOMContentLoaded', async function() {
+        try {
+            // Initialize map first
+            window.map = L.map('map').setView([15.3267, 120.0830], 9);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '&copy; OpenStreetMap contributors'
+            }).addTo(window.map);
+
+            // Initialize UI
+            initializeUI();
+            
+            // Start location tracking
+            await startLocationTracking();
+            
+            // Fetch drop points
+            await fetchDropPoints();
+
+            // Add refresh button handler
+            document.getElementById('refreshBtn').addEventListener('click', async () => {
+                showNotification('Updating location...');
+                await startLocationTracking();
+            });
+        } catch (error) {
+            console.error('Initialization error:', error);
+            showNotification('Error initializing app. Please refresh the page.');
+        }
+    });
+
+    // Clean up on page unload
+    window.addEventListener('beforeunload', () => {
+        if (window.locationWatchId) {
+            navigator.geolocation.clearWatch(window.locationWatchId);
+        }
+    });
+
+    // ...rest of your existing code...
+</script>
+    <script>
+        // Move these functions outside of DOMContentLoaded
+        function showNotification(message) {
+            const notification = document.createElement('div');
+            notification.className = 'notification';
+            notification.textContent = message;
+            document.body.appendChild(notification);
+            
+            setTimeout(() => {
+                notification.style.opacity = '0';
+                setTimeout(() => notification.remove(), 500);
+            }, 3000);
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            // Check if map is already initialized
+            if (!window.map) {
+                // Initialize map
+                window.map = L.map('map').setView([15.3267, 120.0830], 9);
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+                    maxZoom: 19
+                }).addTo(window.map);
+            }
+
+            // Initialize markers
+            let userCircle = null;
+            let preciseCircle = null;  // Add this line
+    
+            // Use existing global userMarker
+            // Define userIcon before using it
+            const userIcon = L.divIcon({
+                html: `
+                    <div style="
+                        background-color: white;
+                        border-radius: 50%;
+                        width: 32px;
+                        height: 32px;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        box-shadow: 0 0 4px rgba(0,0,0,0.3);
+                        border: 2px solid #4CD964;">
+                        <img src="passengericon.png" style="width: 20px; height: 20px;">
+                    </div>`,
+                className: 'static-passenger-marker',
+                iconSize: [32, 32],
+                iconAnchor: [16, 16]
+            });
+
+            // Function to request location permission
+            async function requestLocationPermission() {
+                try {
+                    const position = await new Promise((resolve, reject) => {
+                        navigator.geolocation.getCurrentPosition(resolve, reject, {
+                            enableHighAccuracy: true,
+                            timeout: 10000, // Increased timeout to 10 seconds
+                            maximumAge: 1000
+                        });
+                    });
+                    return position;
+                } catch (error) {
+                    console.error('Error getting location:', error);
+                    showNotification('Could not get your location. Please check your GPS settings.');
+                    return null;
+                }
+            }
+
+            // Update the updateUserMarker function
+            function updateUserMarker(latitude, longitude, accuracy = 0) {
+                // Ensure map is defined before using it
+                if (!window.map) return;
+
+                // Remove existing markers if they exist
+                if (userMarker) {
+                    window.map.removeLayer(userMarker);
+                }
+                if (userCircle) {
+                    window.map.removeLayer(userCircle);
+                }
+
+                // Create new user marker only (no accuracy circle)
+                userMarker = L.marker([latitude, longitude], { icon: userIcon })
+                    .addTo(window.map)
+                    .bindPopup('Your location');
+
+                // Center map on new location
+                window.map.setView([latitude, longitude], 15);
+            }
+
+            // Start tracking location
+            async function startLocationTracking() {
+                const position = await requestLocationPermission();
+                
+                if (position) {
+                    const { latitude, longitude, accuracy } = position.coords;
+                    updateUserMarker(latitude, longitude, accuracy);
+
+                    // Start watching position
+                    const watchId = navigator.geolocation.watchPosition(
+                        (position) => {
+                            const { latitude, longitude, accuracy } = position.coords;
+                            updateUserMarker(latitude, longitude, accuracy);
+                            
+                            // If drop point exists, update distance
+                            if (window.dropPointMarker) {
+                                calculateDistanceToDropPoint(userMarker, window.dropPointMarker);
+                            }
+                        },
+                        (error) => {
+                            console.error('Error watching position:', error);
+                            showNotification('Location tracking error. Please check your GPS settings.');
+                        },
+                        {
+                            enableHighAccuracy: true,
+                            timeout: 10000,
+                            maximumAge: 1000
+                        }
+                    );
+
+                    // Clean up on page unload
+                    window.addEventListener('beforeunload', () => {
+                        navigator.geolocation.clearWatch(watchId);
+                    });
+                }
+            }
+
+            // Refresh button functionality
+            const refreshBtn = document.getElementById('refreshBtn');
+            refreshBtn.addEventListener('click', () => {
+                startLocationTracking();
+            });
+
+            // Initialize location tracking
+            startLocationTracking();
+
+            // Add after DOMContentLoaded initialization
+            let reminderTime = 5; // Default 5 minutes
+            let reminderSet = false;
+            let arrivalTimeout;
+
+            // Add the reminder click handler
+            const reminderContainer = document.getElementById('reminderContainer');
+            const timerModal = document.getElementById('timerModal');
+            const cancelTimer = document.getElementById('cancelTimer');
+            const saveTimer = document.getElementById('saveTimer');
+            const customTimeInput = document.getElementById('customTime');
+            const decreaseTimeBtn = document.getElementById('decreaseTime');
+            const increaseTimeBtn = document.getElementById('increaseTime');
+
+            // Timer options click handlers
+            document.querySelectorAll('.timer-option').forEach(option => {
+                option.addEventListener('click', () => {
+                    document.querySelectorAll('.timer-option').forEach(opt => opt.classList.remove('active'));
+                    option.classList.add('active');
+                    customTimeInput.value = option.dataset.time;
+                });
+            });
+
+            // Custom timer controls
+            decreaseTimeBtn.addEventListener('click', () => {
+                let value = parseInt(customTimeInput.value);
+                if (value > 1) {
+                    customTimeInput.value = value - 1;
+                }
+            });
+
+            increaseTimeBtn.addEventListener('click', () => {
+                let value = parseInt(customTimeInput.value);
+                if (value < 60) {
+                    customTimeInput.value = value + 1;
+                }
+            });
+
+            // Show timer modal
+            reminderContainer.addEventListener('click', () => {
+                timerModal.style.display = 'flex';
+            });
+
+            // Cancel timer setting
+            cancelTimer.addEventListener('click', () => {
+                timerModal.style.display = 'none';
+            });
+
+            // Save timer setting
+            saveTimer.addEventListener('click', () => {
+                reminderTime = parseInt(customTimeInput.value);
+                document.querySelector('#reminderTime span').textContent = `${reminderTime} min`;
+                timerModal.style.display = 'none';
+                setArrivalReminder();
+            });
+
+            // Function to set arrival reminder
+            function setArrivalReminder() {
+                if (arrivalTimeout) {
+                    clearTimeout(arrivalTimeout);
+                }
+
+                const etaElement = document.querySelector('.stat-value');
+                const etaMinutes = parseInt(etaElement.textContent);
+                
+                if (etaMinutes <= reminderTime) {
+                    showNotification("You're almost at your destination!");
+                    return;
+                }
+
+                const timeUntilReminder = (etaMinutes - reminderTime) * 60 * 1000;
+                
+                arrivalTimeout = setTimeout(() => {
+                    showArrivalNotification();
+                }, timeUntilReminder);
+
+                showNotification(`Reminder set for ${reminderTime} minutes before arrival`);
+                reminderSet = true;
+            }
+
+            // Function to show arrival notification
+            function showArrivalNotification() {
+                const notification = document.createElement('div');
+                notification.className = 'arrival-notification';
+                notification.innerHTML = `
+                    <h3>Almost There!</h3>
+                    <p>You'll arrive at your destination in about ${reminderTime} minutes.</p>
+                    <button onclick="this.parentElement.remove()" 
+                            style="margin-top: 10px; padding: 8px 16px; border: none; 
+                                border-radius: 20px; background: white; cursor: pointer;">
+                        Dismiss
+                    </button>
+                `;
+                document.body.appendChild(notification);
+                
+                // Vibrate if supported
+                if ('vibrate' in navigator) {
+                    navigator.vibrate([200, 100, 200]);
+                }
+            }
+
+            // Function to show temporary notifications
+            function showNotification(message) {
+                const notification = document.createElement('div');
+                notification.className = 'notification';
+                notification.textContent = message;
+                document.body.appendChild(notification);
+                
+                setTimeout(() => {
+                    notification.style.opacity = '0';
+                    setTimeout(() => notification.remove(), 500);
+                }, 3000);
+            }
+
+            // Add this code right after document.addEventListener('DOMContentLoaded', function() {
+
+            // Get bus information from session storage
+            const busInfo = JSON.parse(sessionStorage.getItem('onboardBusInfo'));
+
+            // Update UI with bus information
+            if (busInfo) {
+                document.querySelector('.route-number').textContent = `Bus ${busInfo.busNumber}`;
+                document.querySelector('.bus-route').textContent = `Route: ${busInfo.routeName}`;
+                
+                // Set initial map view to bus location
+                map.setView([busInfo.latitude, busInfo.longitude], 15);
+                
+                // Create bus marker
+                const busIcon = L.divIcon({
+                    html: `
+                        <div style="
+                            background-color: white;
+                            border-radius: 50%;
+                            width: 32px;
+                            height: 32px;
+                            display: flex;
+                            align-items: center;
+                            justify-content: center;
+                            box-shadow: 0 0 4px rgba(0,0,0,0.3);
+                            border: 2px solid var(--primary-gradient-start);
+                        ">
+                            <img src="busicon.png" style="
+                                width: 20px;
+                                height: 20px;
+                            ">
+                        </div>`,
+                    className: 'static-bus-marker', // Changed from 'bus-location-marker'
+                    iconSize: [32, 32],
+                    iconAnchor: [16, 16]
+                });
+
+                const busMarker = L.marker([busInfo.latitude, busInfo.longitude], { icon: busIcon })
+                    .addTo(map)
+                    .bindPopup(`Bus ${busInfo.busNumber}<br>${busInfo.routeName}`);
+            }
+
+            // Add back button functionality to return to viewmap.html
+            document.getElementById('endJourneyBtn').addEventListener('click', function() {
+                // Clear onboard bus info
+                sessionStorage.removeItem('onboardBusInfo');
+                // Return to viewmap.html
+                window.location.href = 'viewmap.html';
+            });
+
+            // Replace the existing bus info update code
+            if (busInfo) {
+                // Update route information
+                document.querySelector('.route-number').textContent = `Bus ${busInfo.busNumber}`;
+                document.querySelector('.bus-route').textContent = `Route: ${busInfo.routeName}`;
+                
+                // Update distance and ETA stats
+                document.querySelector('.journey-stats .stat-item:nth-child(1) .stat-value').textContent = busInfo.eta;
+                document.querySelector('.journey-stats .stat-item:nth-child(2) .stat-value').textContent = busInfo.distance;
+                
+                // Set initial map view to bus location
+                map.setView([busInfo.latitude, busInfo.longitude], 15);
+                
+                // Create bus marker
+                const busIcon = L.divIcon({
+                    html: `
+                        <div style="
+                            background-color: white;
+                            border-radius: 50%;
+                            width: 32px;
+                            height: 32px;
+                            display: flex;
+                            align-items: center;
+                            justify-content: center;
+                            box-shadow: 0 0 4px rgba(0,0,0,0.3);
+                            border: 2px solid var(--primary-gradient-start);
+                        ">
+                            <img src="busicon.png" style="width: 20px; height: 20px;">
+                        </div>`,
+                    className: 'static-bus-marker', // Changed from 'bus-location-marker'
+                    iconSize: [32, 32],
+                    iconAnchor: [16, 16]
+                });
+
+                const busMarker = L.marker([busInfo.latitude, busInfo.longitude], { icon: busIcon })
+                    .addTo(map)
+                    .bindPopup(`Bus ${busInfo.busNumber}<br>${busInfo.routeName}<br>Distance: ${busInfo.distance}`);
+            }
+
+            // Add live distance updates
+            function updateDistance() {
+                if (userMarker && busMarker) {
+                    const userLatLng = userMarker.getLatLng();
+                    const busLatLng = busMarker.getLatLng();
+                    
+                    // Calculate new distance
+                    const distanceInMeters = map.distance(
+                        [userLatLng.lat, userLatLng.lng],
+                        [busLatLng.lat, busLatLng.lng]
+                    );
+                    const distanceInKm = distanceInMeters / 1000;
+                    
+                    // Format distance text
+                    const distanceText = distanceInKm < 1 
+                        ? `${Math.round(distanceInMeters)}m`
+                        : `${distanceInKm.toFixed(1)}km`;
+                    
+                    // Calculate ETA
+                    const averageSpeedKmH = 30;
+                    const etaMinutes = Math.round((distanceInKm / averageSpeedKmH) * 60);
+                    const etaText = etaMinutes >= 60 
+                        ? `${Math.floor(etaMinutes/60)}h ${etaMinutes%60}m`
+                        : `${etaMinutes}m`;
+                    
+                    // Update UI
+                    document.querySelector('.journey-stats .stat-item:nth-child(1) .stat-value').textContent = etaText;
+                    document.querySelector('.journey-stats .stat-item:nth-child(2) .stat-value').textContent = distanceText;
+                }
+            }
+
+            // Update distance every 10 seconds
+            setInterval(updateDistance, 10000);
+
+            // Fetch drop points
+            fetchDropPoints();
+        });
+
+        // Add this code after the startLocationTracking() initialization
+
+        // Function to fetch drop points from Supabase
+        async function fetchDropPoints() {
+            try {
+                // Use the global supabase client that was initialized earlier
+                const { data, error } = await supabase
+                    .from('droppoints')
+                    .select('droppointid, dropname, latitude, longitude')
+                    .order('dropname');
+
+                if (error) throw error;
+
+                // Get the select element
+                const dropPointSelect = document.getElementById('dropPointSelect');
+                
+                // Clear existing options
+                dropPointSelect.innerHTML = '<option value="">Select your destination...</option>';
+
+                // Add drop points to select
+                data.forEach(point => {
+                    const option = document.createElement('option');
+                    option.value = point.droppointid;
+                    option.textContent = point.dropname;
+                    dropPointSelect.appendChild(option);
+                });
+
+                console.log('Drop points loaded:', data);
+
+            } catch (error) {
+                console.error('Error fetching drop points:', error);
+                showNotification('Could not load drop points');
+            }
+        }
+
+        // Update the selection change handler
+        document.getElementById('dropPointSelect').addEventListener('change', async function(e) {
+            const selectedId = e.target.value;
+            const confirmButton = document.getElementById('confirmDropPoint');
+            
+            // Enable/disable confirm button based on selection
+            confirmButton.disabled = !selectedId;
+            
+            if (selectedId) {
+                try {
+                    const { data, error } = await supabase
+                        .from('droppoints')
+                        .select('dropname, latitude, longitude')
+                        .eq('droppointid', selectedId)
+                        .single();
+
+                    if (error) throw error;
+
+                    // Remove existing drop point marker if it exists
+                    if (window.dropPointMarker) {
+                        window.dropPointMarker.remove();
+                    }
+
+                    // Make sure map is defined before using setView
+                    if (map) {
+                        // Center map on selected drop point
+                        map.setView([data.latitude, data.longitude], 15);
+                        
+                        // Add marker for drop point
+                        window.dropPointMarker = L.marker([data.latitude, data.longitude], {
+                            icon: dropPointIcon
+                        }).addTo(map)
+                          .bindPopup(`Drop point: ${data.dropname}`);
+
+                        // Store selected drop point details globally for later use
+                        window.selectedDropPoint = data;
+                        
+                        showNotification(`Selected destination: ${data.dropname}`);
+                    }
+                } catch (error) {
+                    console.error('Error fetching drop point details:', error);
+                    showNotification('Could not load drop point location');
+                }
+            }
+        });
+
+        // Add confirm button click handler
+        document.getElementById('confirmDropPoint').addEventListener('click', function() {
+            const dropPointSelect = document.getElementById('dropPointSelect');
+            const selectedOption = dropPointSelect.options[dropPointSelect.selectedIndex];
+            
+            if (selectedOption.value) {
+                // Store the selected drop point in session storage
+                sessionStorage.setItem('selectedDropPoint', JSON.stringify({
+                    id: selectedOption.value,
+                    name: selectedOption.text
+                }));
+                
+                // Show coordinates from the fetched droppoint details
+                if (window.selectedDropPoint) {
+                    const { latitude, longitude } = window.selectedDropPoint;
+                    showNotification(`Destination confirmed: ${selectedOption.text} (Lat: ${latitude}, Lng: ${longitude})`);
+                    
+                    // Center map on selected drop point and add marker
+                    map.setView([latitude, longitude], 15);
+                    if (window.dropPointMarker) {
+                        map.removeLayer(window.dropPointMarker);
+                    }
+                    window.dropPointMarker = L.marker([latitude, longitude], {
+                        icon: L.divIcon({
+                            html: `
+                                <div style="
+                                    background-color: white;
+                                    border-radius: 50%;
+                                    width: 32px;
+                                    height: 32px;
+                                    display: flex;
+                                    align-items: center;
+                                    justify-content: center;
+                                    box-shadow: 0 0 4px rgba(0,0,0,0.3);
+                                    border: 2px solid var(--accent-blue);">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="var(--accent-blue)">
+                                        <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/>
+                                    </svg>
+                                </div>`,
+                        className: 'drop-point-marker',
+                        iconSize: [32, 32],
+                        iconAnchor: [16, 32]
+                    })
+                    }).addTo(map)
+                      .bindPopup(`Drop point: ${selectedOption.text} (Lat: ${latitude}, Lng: ${longitude})`);
+                } else {
+                    showNotification(`Destination confirmed: ${selectedOption.text}`);
+                }
+                
+                // Disable the select and confirm button after confirmation
+                dropPointSelect.disabled = true;
+                this.disabled = true;
+                this.textContent = 'Destination Confirmed';
+            }
+        });
+
+        // Call fetchDropPoints when the page loads
+        document.addEventListener('DOMContentLoaded', function() {
+            fetchDropPoints();
+        });
+
+        // Rest of your initialization code...
+        
+        // Call fetchDropPoints after initialization
+        fetchDropPoints();
+
+        // Add this function after showNotification function
+        function calculateDistanceToDropPoint(userMarker, dropPointMarker) {
+            if (!userMarker || !dropPointMarker) return;
+            
+            const userLatLng = userMarker.getLatLng();
+            const dropPointLatLng = dropPointMarker.getLatLng();
+            
+            // Calculate distance in meters
+            const distanceInMeters = map.distance(
+                [userLatLng.lat, userLatLng.lng],
+                [dropPointLatLng.lat, dropPointLatLng.lng]
+            );
+            
+            const distanceInKm = distanceInMeters / 1000;
+            
+            // Format distance text
+            const distanceText = distanceInKm < 1 
+                ? `${Math.round(distanceInMeters)}m`
+                : `${distanceInKm.toFixed(1)}km`;
+                
+            // Calculate ETA based on average walking speed (5 km/h)
+            const walkingSpeedKmH = 30;
+            const etaMinutes = Math.round((distanceInKm / walkingSpeedKmH) * 60);
+            const etaText = etaMinutes >= 60 
+                ? `${Math.floor(etaMinutes/60)}h ${etaMinutes%60}m`
+                : `${etaMinutes}m`;
+                
+            // Update UI
+            const etaElement = document.querySelector('.journey-stats .stat-item:nth-child(1) .stat-value');
+            const distanceElement = document.querySelector('.journey-stats .stat-item:nth-child(2) .stat-value');
+            
+            if (etaElement) etaElement.textContent = etaText;
+            if (distanceElement) distanceElement.textContent = distanceText;
+            
+            return { distance: distanceInKm, eta: etaMinutes };
+        }
+
+        // Modify the confirm button click handler
+        document.getElementById('confirmDropPoint').addEventListener('click', function() {
+            const dropPointSelect = document.getElementById('dropPointSelect');
+            const selectedOption = dropPointSelect.options[dropPointSelect.selectedIndex];
+            
+            if (selectedOption.value && window.selectedDropPoint) {
+                const { latitude, longitude } = window.selectedDropPoint;
+                
+                // Check if userMarker exists before calculating distance
+                if (userMarker) {
+                    // After creating the drop point marker
+                    if (window.dropPointMarker) {
+                        map.removeLayer(window.dropPointMarker);
+                    }
+                    
+                    window.dropPointMarker = L.marker([latitude, longitude], {
+                        icon: dropPointIcon
+                    }).addTo(map);
+                    
+                    // Calculate and show distance
+                    const distanceInfo = calculateDistanceToDropPoint(userMarker, window.dropPointMarker);
+                    if (distanceInfo) {
+                        showNotification(
+                            `Destination confirmed: ${selectedOption.text}\n` +
+                            `Distance: ${distanceInfo.distance.toFixed(1)}km\n` +
+                            `ETA: ${distanceInfo.eta} minutes`
+                        );
+                    }
+                } else {
+                    showNotification('Waiting for your location...');
+                    // Retry getting location
+                    startLocationTracking();
+                }
+            }
+            
+            // Disable the select and confirm button after confirmation
+            dropPointSelect.disabled = true;
+            this.disabled = true;
+            this.textContent = 'Destination Confirmed';
+        });
+
+        function updateUIElements(data) {
+            const routeNumber = document.querySelector('.route-number');
+            const busRoute = document.querySelector('.bus-route');
+            const etaValue = document.querySelector('.journey-stats .stat-item:nth-child(1) .stat-value');
+            const distanceValue = document.querySelector('.journey-stats .stat-item:nth-child(2) .stat-value');
+
+            if (routeNumber) routeNumber.textContent = `Bus ${data.busNumber}`;
+            if (busRoute) busRoute.textContent = `Route: ${data.routeName}`;
+            if (etaValue) etaValue.textContent = data.eta || '15 mins';
+            if (distanceValue) distanceValue.textContent = data.distance || '3.2 km';
+        }
+
+        // Replace direct DOM updates with the new function
+        if (busInfo) {
+            updateUIElements(busInfo);
+            
+            // Set initial map view to bus location
+            map.setView([busInfo.latitude, busInfo.longitude], 15);
+            
+            // ...rest of bus marker creation code...
+        }
+
+        // Update the calculateDistanceToDropPoint function to safely update UI
+        function calculateDistanceToDropPoint(userMarker, dropPointMarker) {
+            if (!userMarker || !dropPointMarker) return;
+            
+            const userLatLng = userMarker.getLatLng();
+            const dropPointLatLng = dropPointMarker.getLatLng();
+            
+            // Calculate distance in meters
+            const distanceInMeters = map.distance(
+                [userLatLng.lat, userLatLng.lng],
+                [dropPointLatLng.lat, dropPointLatLng.lng]
+            );
+            
+            const distanceInKm = distanceInMeters / 1000;
+            return { distance: distanceInKm };
+        }
+
+        // ...existing code...
+
+        // Global variables
+        // userMarker and dropPointMarker are already declared globally
+        function calculateDistance(point1, point2) {
+            return map.distance(
+                [point1.lat, point1.lng],
+                [point2.lat, point2.lng]
+            );
+        }
+
+        // Update distance and ETA in UI
+        function updateDistanceAndETA(distance) {
+            const distanceInKm = distance / 1000;
+            const distanceText = distanceInKm < 1 
+                ? `${Math.round(distance)}m`
+                : `${distanceInKm.toFixed(1)}km`;
+            
+            const averageSpeedKmH = 30;
+            const etaMinutes = Math.round((distanceInKm / averageSpeedKmH) * 60);
+            const etaText = etaMinutes >= 60 
+                ? `${Math.floor(etaMinutes/60)}h ${etaMinutes%60}m`
+                : `${etaMinutes}m`;
+
+            document.querySelector('.journey-stats .stat-item:nth-child(1) .stat-value').textContent = etaText;
+            document.querySelector('.journey-stats .stat-item:nth-child(2) .stat-value').textContent = distanceText;
+
+            return { distance: distanceInKm, eta: etaMinutes };
+        }
+
+        // Update location
+        function updateUserLocation(position) {
+            const { latitude, longitude } = position.coords;
+            
+            if (userMarker) {
+                userMarker.setLatLng([latitude, longitude]);
+            } else {
+                userMarker = L.marker([latitude, longitude], { icon: userIcon }).addTo(map);
+            }
+
+            // If drop point exists, update distance
+            if (dropPointMarker) {
+                const distance = calculateDistance(
+                    userMarker.getLatLng(),
+                    dropPointMarker.getLatLng()
+                );
+                updateDistanceAndETA(distance);
+            }
+        }
+
+        // Start location tracking
+        function startLocationTracking() {
+            if ('geolocation' in navigator) {
+                navigator.geolocation.watchPosition(
+                    updateUserLocation,
+                    (error) => {
+                        console.error('Error watching position:', error);
+                        showNotification('Location tracking error. Please check your GPS settings.');
+                    },
+                    {
+                        enableHighAccuracy: true,
+                        timeout: 10000,
+                        maximumAge: 1000
+                    }
+                );
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            // Initialize map
+            map = L.map('map').setView([15.3267, 120.0830], 9);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '&copy; OpenStreetMap contributors'
+            }).addTo(map);
+
+            // Start tracking
+            startLocationTracking();
+
+            // Handle drop point selection
+            document.getElementById('dropPointSelect').addEventListener('change', async function(e) {
+                const selectedId = e.target.value;
+                if (!selectedId) return;
+
+                try {
+                    const { data, error } = await window.supabaseClient
+                        .from('droppoints')
+                        .select('dropname, latitude, longitude')
+                        .eq('droppointid', selectedId)
+                        .single();
+
+                    if (error) throw error;
+
+                    if (dropPointMarker) {
+                        dropPointMarker.remove();
+                    }
+
+                    dropPointMarker = L.marker([data.latitude, data.longitude], { icon: dropPointIcon }).addTo(map);
+                    map.fitBounds([
+                        [userMarker.getLatLng().lat, userMarker.getLatLng().lng],
+                        [data.latitude, data.longitude]
+                    ]);
+
+                    if (userMarker) {
+                        const distance = calculateDistance(
+                            userMarker.getLatLng(),
+                            dropPointMarker.getLatLng()
+                        );
+                        updateDistanceAndETA(distance);
+                    }
+
+                    window.selectedDropPoint = data;
+                    document.getElementById('confirmDropPoint').disabled = false;
+
+                } catch (error) {
+                    console.error('Error:', error);
+                    showNotification('Could not load drop point location');
+                }
+            });
+        });
+
+        // ...rest of your existing code...
+
+        // Update the distance calculation function
+        function calculateDistanceToDropPoint(userMarker, dropPointMarker) {
+            if (!userMarker || !dropPointMarker) return;
+            
+            const userLatLng = userMarker.getLatLng();
+            const dropPointLatLng = dropPointMarker.getLatLng();
+            
+            // Calculate distance in meters
+            const distanceInMeters = map.distance(
+                [userLatLng.lat, userLatLng.lng],
+                [dropPointLatLng.lat, dropPointLatLng.lng]
+            );
+            
+            const distanceInKm = distanceInMeters / 1000;
+            
+            // Format distance text
+            const distanceText = distanceInKm < 1 
+                ? `${Math.round(distanceInMeters)}m`
+                : `${distanceInKm.toFixed(1)}km`;
+                
+            // Calculate ETA based on average speed
+            const averageSpeedKmH = 30;
+            const etaMinutes = Math.round((distanceInKm / averageSpeedKmH) * 60);
+            const etaText = etaMinutes >= 60 
+                ? `${Math.floor(etaMinutes/60)}h ${etaMinutes%60}m`
+                : `${etaMinutes}m`;
+                
+            // Update UI
+            document.querySelector('.journey-stats .stat-item:nth-child(1) .stat-label').textContent = 'ETA to Drop Point';
+            document.querySelector('.journey-stats .stat-item:nth-child(2) .stat-label').textContent = 'Distance to Drop Point';
+            
+            document.querySelector('.journey-stats .stat-item:nth-child(1) .stat-value').textContent = etaText;
+            document.querySelector('.journey-stats .stat-item:nth-child(2) .stat-value').textContent = distanceText;
+            
+            // Update the marker popup with distance info
+            dropPointMarker.setPopupContent(
+                `Drop point: ${window.selectedDropPoint.dropname}<br>` +
+                `Distance: ${distanceText}<br>` +
+                `ETA: ${etaText}`
+            );
+            
+            return { distance: distanceInKm, eta: etaMinutes };
+        }
+
+        // Update the confirm button click handler to immediately show distance
+        document.getElementById('confirmDropPoint').addEventListener('click', function() {
+            const dropPointSelect = document.getElementById('dropPointSelect');
+            const selectedOption = dropPointSelect.options[dropPointSelect.selectedIndex];
+            
+            if (selectedOption.value && window.selectedDropPoint && userMarker) {
+                const { latitude, longitude } = window.selectedDropPoint;
+                
+                // Create or update drop point marker
+                if (window.dropPointMarker) {
+                    map.removeLayer(window.dropPointMarker);
+                }
+                
+                window.dropPointMarker = L.marker([latitude, longitude], {
+                    icon: dropPointIcon
+                }).addTo(map);
+                
+                // Calculate and show distance immediately
+                const distanceInfo = calculateDistanceToDropPoint(userMarker, window.dropPointMarker);
+                
+                // Show both markers in view
+                map.fitBounds([
+                    userMarker.getLatLng(),
+                    window.dropPointMarker.getLatLng()
+                ], { padding: [50, 50] });
+                
+                if (distanceInfo) {
+                    showNotification(
+                        `Destination confirmed: ${selectedOption.text}\n` +
+                        `Distance: ${distanceInfo.distance.toFixed(1)}km\n` +
+                        `ETA: ${distanceInfo.eta} minutes`
+                    );
+                }
+                
+                // Start updating distance periodically
+                const distanceUpdateInterval = setInterval(() => {
+                    if (!window.dropPointMarker || !userMarker) {
+                        clearInterval(distanceUpdateInterval);
+                        return;
+                    }
+                    calculateDistanceToDropPoint(userMarker, window.dropPointMarker);
+                }, 5000); // Update every 5 seconds
+            }
+            
+            // Disable the select and confirm button after confirmation
+            dropPointSelect.disabled = true;
+            this.disabled = true;
+            this.textContent = 'Destination Confirmed';
+        });
+
+        // ...existing code...
+
+        document.addEventListener('DOMContentLoaded', function() {
+            // Initialize stats with dashes
+            document.querySelector('.journey-stats .stat-item:nth-child(1) .stat-value').textContent = '---';
+            document.querySelector('.journey-stats .stat-item:nth-child(2) .stat-value').textContent = '---';
+            
+            // Update labels
+            document.querySelector('.journey-stats .stat-item:nth-child(1) .stat-label').textContent = 'ETA to Drop Point';
+            document.querySelector('.journey-stats .stat-item:nth-child(2) .stat-label').textContent = 'Distance to Drop Point';
+
+            // ...rest of your existing code...
+        });
+
+        // Update the droppoint selection handler to show values only after selection
+        document.getElementById('dropPointSelect').addEventListener('change', async function(e) {
+            const selectedId = e.target.value;
+            const confirmButton = document.getElementById('confirmDropPoint');
+            
+            // Reset stats if no selection
+            if (!selectedId) {
+                document.querySelector('.journey-stats .stat-item:nth-child(1) .stat-value').textContent = '---';
+                document.querySelector('.journey-stats .stat-item:nth-child(2) .stat-value').textContent = '---';
+                confirmButton.disabled = true;
+                return;
+            }
+
+            // ...rest of your existing droppoint selection code...
+        });
+
+        // ...rest of your existing code...
+
+        // ...existing code...
+        document.getElementById('dropPointSelect').addEventListener('change', async function(e) {
+            const selectedId = e.target.value;
+            const confirmButton = document.getElementById('confirmDropPoint');
+            
+            confirmButton.disabled = !selectedId;
+            
+            if (selectedId) {
+                try {
+                    console.log('Fetching drop point details for ID:', selectedId);
+                    const { data, error } = await supabase
+                        .from('droppoints')
+                        .select('dropname, latitude, longitude')
+                        .eq('droppointid', selectedId)
+                        .single();
+
+                    if (error) throw error;
+                    console.log('Drop point data received:', data);
+
+                    // Remove existing marker if it exists
+                    if (window.dropPointMarker && map) {
+                        console.log('Removing existing drop point marker');
+                        map.removeLayer(window.dropPointMarker);
+                    }
+
+                    // Create new marker with a more visible icon
+                    const dropPointIcon = L.divIcon({
+                        html: `
+                            <div style="
+                                background-color: #FF4444;
+                                border-radius: 50%;
+                                width: 32px;
+                                height: 32px;
+                                display: flex;
+                                align-items: center;
+                                justify-content: center;
+                                box-shadow: 0 0 10px rgba(255, 68, 68, 0.5);
+                                border: 3px solid white;">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="white">
+                                    <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/>
+                                </svg>
+                            </div>`,
+                        className: 'drop-point-marker',
+                        iconSize: [32, 32],
+                        iconAnchor: [16, 32]
+                    });
+
+                    console.log('Creating new drop point marker at:', data.latitude, data.longitude);
+                    window.dropPointMarker = L.marker([data.latitude, data.longitude], {
+                        icon: dropPointIcon
+                    }).addTo(map);
+
+                    // Make sure the marker is visible
+                    window.dropPointMarker.bindPopup(`Drop point: ${data.dropname}`).openPopup();
+                    
+                    // Zoom to show both markers
+                    if (userMarker) {
+                        const bounds = L.latLngBounds(
+                            [userMarker.getLatLng()],
+                            [data.latitude, data.longitude]
+                        );
+                        map.fitBounds(bounds, { padding: [50, 50] });
+                    } else {
+                        map.setView([data.latitude, data.longitude], 15);
+                    }
+
+                    // Store selected drop point details
+                    window.selectedDropPoint = data;
+                    
+                    showNotification(`Selected drop point: ${data.dropname}`);
+                    console.log('Drop point marker created successfully');
+
+                } catch (error) {
+                    console.error('Error setting drop point marker:', error);
+                    showNotification('Error loading drop point location');
+                }
+            }
+        });
+        // ...existing code...
+    </script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+    let reminderDistance = 500; // Default 500 meters
+    let reminderSet = false;
+    let distanceCheckInterval;
+
+    // Distance modal elements
+    const reminderContainer = document.getElementById('reminderContainer');
+    const distanceModal = document.getElementById('distanceModal');
+    const cancelDistance = document.getElementById('cancelDistance');
+    const saveDistance = document.getElementById('saveDistance');
+    const customDistanceInput = document.getElementById('customDistance');
+    const decreaseDistanceBtn = document.getElementById('decreaseDistance');
+    const increaseDistanceBtn = document.getElementById('increaseDistance');
+
+    // Distance options click handlers
+    document.querySelectorAll('.timer-option').forEach(option => {
+        option.addEventListener('click', () => {
+            document.querySelectorAll('.timer-option').forEach(opt => opt.classList.remove('active'));
+            option.classList.add('active');
+            customDistanceInput.value = option.dataset.distance;
+        });
+    });
+
+    // Custom distance controls
+    decreaseDistanceBtn.addEventListener('click', () => {
+        let value = parseInt(customDistanceInput.value);
+        if (value > 50) {
+            customDistanceInput.value = value - 50;
+        }
+    });
+
+    increaseDistanceBtn.addEventListener('click', () => {
+        let value = parseInt(customDistanceInput.value);
+        if (value < 5000) {
+            customDistanceInput.value = value + 50;
+        }
+    });
+
+    // Show distance modal
+    reminderContainer.addEventListener('click', () => {
+        distanceModal.style.display = 'flex';
+    });
+
+    // Cancel distance setting
+    cancelDistance.addEventListener('click', () => {
+        distanceModal.style.display = 'none';
+    });
+
+    // Save distance setting
+    saveDistance.addEventListener('click', () => {
+        reminderDistance = parseInt(customDistanceInput.value);
+        document.querySelector('#reminderDistance span').textContent = 
+            reminderDistance >= 1000 ? 
+            `${(reminderDistance/1000).toFixed(1)}km` : 
+            `${reminderDistance}m`;
+        distanceModal.style.display = 'none';
+        setDistanceReminder();
+    });
+
+    function setDistanceReminder() {
+        if (distanceCheckInterval) {
+            clearInterval(distanceCheckInterval);
+        }
+
+        distanceCheckInterval = setInterval(() => {
+            if (!userMarker || !window.dropPointMarker) return;
+
+            const currentDistance = calculateDistance(
+                userMarker.getLatLng(),
+                window.dropPointMarker.getLatLng()
+            );
+
+            if (currentDistance <= reminderDistance && !reminderSet) {
+                showDistanceNotification();
+                reminderSet = true;
+            } else if (currentDistance > reminderDistance) {
+                reminderSet = false;
+            }
+        }, 1000);
+
+        showNotification(`Alert will trigger when ${reminderDistance}m from destination`);
+    }
+
+    function showDistanceNotification() {
+        const notification = document.createElement('div');
+        notification.className = 'arrival-notification';
+        notification.innerHTML = `
+            <h3>Destination Approaching!</h3>
+            <p>You are now ${reminderDistance} meters from your destination.</p>
+            <button onclick="this.parentElement.remove()" 
+                    style="margin-top: 10px; padding: 8px 16px; border: none; 
+                           border-radius: 20px; background: white; cursor: pointer;">
+                Dismiss
+            </button>
+        `;
+        document.body.appendChild(notification);
+        
+        // Vibrate if supported
+        if ('vibrate' in navigator) {
+            navigator.vibrate([200, 100, 200]);
+        }
+    }
+});
+    </script>
+    <script>
+        // Alert driver button functionality
+        document.getElementById('alertDriverBtn').addEventListener('click', function() {
+            showNotification('Driver has been alerted');
+            this.disabled = true;
+            setTimeout(() => {
+                this.disabled = false;
+            }, 5000); // Re-enable button after 5 seconds
+        });
+    </script>
+</body>
+</html>

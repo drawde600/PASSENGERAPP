@@ -1,0 +1,938 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Project Para - Bus Details</title>
+    <!-- Leaflet CSS for OpenStreetMap -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
+    <style>
+        :root {
+            --primary-gradient-start: #4a6bff;
+            --primary-gradient-end: #39c2ff;
+            --dark-bg: #1e2130;
+            --darker-bg: #171924;
+            --card-bg: rgba(30, 33, 48, 0.85);
+            --button-color: #e53935;
+            --text-color: #ffffff;
+            --secondary-text: #a0a7b8;
+            --accent-blue: #39c2ff;
+            --accent-green: #4cd964;
+            --border-radius: 12px;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        body {
+            background-color: var(--darker-bg);
+            color: var(--text-color);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .app-container {
+            width: 100%;
+            max-width: 380px;
+            background: white;
+            border-radius: var(--border-radius);
+            overflow: hidden;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+            height: 788px;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+        }
+        
+        .header {
+            background: var(--darker-bg);
+            padding: 16px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .header .back-button {
+            display: flex;
+            align-items: center;
+            cursor: pointer;
+        }
+
+        .header .logo-icon {
+            background: linear-gradient(to right, var(--primary-gradient-start), var(--primary-gradient-end));
+            border-radius: 8px;
+            width: 36px;
+            height: 36px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 12px;
+        }
+
+        .header .refresh-icon {
+            background: var(--accent-blue);
+            border-radius: 8px;
+            width: 36px;
+            height: 36px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+        }
+        
+        .map-container {
+            flex: 1;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        #map {
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+        }
+        
+        .map-overlay {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background-color: var(--dark-bg);
+            color: white;
+            border-top-left-radius: var(--border-radius);
+            border-top-right-radius: var(--border-radius);
+            padding: 16px 20px;
+            box-shadow: 0 -4px 10px rgba(0, 0, 0, 0.1);
+            z-index: 2;
+        }
+        
+        .bus-details {
+            margin-bottom: 16px;
+        }
+        
+        .bus-title {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+        
+        .bus-number {
+            font-size: 18px;
+            font-weight: 600;
+            color: white;
+        }
+        
+        .bus-status {
+            background-color: var(--accent-green);
+            color: white;
+            padding: 4px 10px;
+            border-radius: 16px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+        
+        .bus-route {
+            color: rgba(255, 255, 255, 0.7);
+            font-size: 14px;
+            margin-bottom: 12px;
+        }
+        
+        .bus-stats {
+            display: flex;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            padding: 12px 0;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            gap: 8px;
+        }
+        
+        .stat-item {
+            flex: 1;
+            min-width: 80px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+        }
+        
+        .stat-label {
+            font-size: 12px;
+            color: rgba(255, 255, 255, 0.7);
+            margin-bottom: 4px;
+        }
+        
+        .stat-value {
+            font-size: 14px;
+            font-weight: 600;
+            color: white;
+        }
+
+        #distanceValue, #etaValue {
+            color: var(--accent-green);
+        }
+        
+        .onboard-btn {
+            width: 100%;
+            padding: 16px;
+            border-radius: var(--border-radius);
+            border: none;
+            background-color: var(--button-color);
+            color: white;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .onboard-btn:hover:not([disabled]) {
+            background-color: #d32f2f;
+        }
+        
+        .onboard-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+        
+        /* Loading indicator */
+        .loading {
+            display: none;
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(30, 33, 48, 0.9);
+            z-index: 10;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+        }
+        
+        .loading-spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid rgba(0, 151, 136, 0.1);
+            border-radius: 50%;
+            border-top-color: var(--primary-gradient-start);
+            animation: spin 1s ease-in-out infinite;
+            margin-bottom: 16px;
+        }
+        
+        .loading-text {
+            color: white;
+            font-size: 16px;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        /* Bus status color variants */
+        .bus-status.delayed {
+            background-color: #FFC107;
+        }
+        
+        .bus-status.canceled {
+            background-color: #F44336;
+        }
+        
+        /* Custom bus icon styling */
+        .bus-icon {
+            text-align: center;
+        }
+        
+        .leaflet-popup-content {
+            text-align: center;
+            font-weight: bold;
+        }
+
+        /* Add to your existing style section */
+        .leaflet-tile {
+            filter: brightness(0.6) invert(1) contrast(3) hue-rotate(200deg) saturate(0.3) brightness(0.7);
+        }
+
+        .leaflet-container {
+            background: #303035;
+        }
+
+        .leaflet-popup-content-wrapper {
+            background-color: var(--dark-bg);
+            color: white;
+        }
+
+        .leaflet-popup-tip {
+            background-color: var(--dark-bg);
+        }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <div class="header">
+            <div class="back-button" id="backButton">
+                <div class="logo-icon">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M15 18L9 12L15 6" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                </div>
+                <span>Bus Details</span>
+            </div>
+            <div class="refresh-icon" id="refreshBtn">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M1 4V10H7" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    <path d="M23 20V14H17" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    <path d="M20.49 9.00001C19.9828 7.56329 19.1209 6.28067 17.9845 5.27102C16.8482 4.26137 15.4745 3.56428 14 3.24601C12.5255 2.92774 10.9998 3.00001 9.56 3.45636C8.12022 3.91271 6.82196 4.73765 5.78 5.84001L1 10M23 14L18.22 18.16C17.1781 19.2624 15.8798 20.0873 14.44 20.5436C13.0002 21 11.4745 21.0722 10 20.754C8.52552 20.4357 7.15183 19.7386 6.01547 18.729C4.87911 17.7193 4.01718 16.4367 3.51 15" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+            </div>
+        </div>
+        
+        <div class="map-container">
+            <!-- OpenStreetMap will be loaded here -->
+            <div id="map"></div>
+            
+            <div class="map-overlay">
+                <div class="bus-details">
+                    <div class="bus-title">
+                        <div class="bus-number">Bus 247</div>
+                        <div class="bus-status">On Time</div>
+                    </div>
+                    <div class="bus-route">Route: Downtown Express</div>
+                    <div class="bus-stats">
+                        <div class="stat-item">
+                            <div class="stat-label">Last Updated</div>
+                            <div class="stat-value time-value">--</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-label">Distance</div>
+                            <div class="stat-value" id="distanceValue">--</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-label">ETA</div>
+                            <div class="stat-value" id="etaValue">--</div>
+                        </div>
+                    </div>
+                </div>
+                <button class="onboard-btn" id="onboardBtn">On Board</button>
+            </div>
+        </div>
+        
+        <!-- Loading indicator -->
+        <div class="loading" id="loadingIndicator">
+            <div class="loading-spinner"></div>
+            <div class="loading-text">Updating map...</div>
+        </div>
+    </div>
+
+    <!-- First load Supabase -->
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+    <!-- Then load Leaflet -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+    <!-- Then your custom script -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Initialize shared variables at the top
+            let selectedBus = null;
+            let userMarker = null;
+            const busMarkers = new Map(); // Define busMarkers as const at the top level
+            
+            // Initialize Supabase client
+            const { createClient } = supabase;
+            const supabaseClient = createClient(
+                'https://jeszxshbzmnxdoqjltuk.supabase.co',
+                'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Implc3p4c2hiem1ueGRvcWpsdHVrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDA4MzM0NjIsImV4cCI6MjA1NjQwOTQ2Mn0.FgZmXxDX00_9OLyLgFM_dyrPpb1eISeIte9s1edLPcE'
+            );
+
+            // Initialize map and icons
+            const map = L.map('map').setView([15.3267, 120.0830], 13);
+            
+            // Add this code right after the map initialization
+            console.log('Map initialized:', map);
+
+            // Add tile layer with logging
+            try {
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                    attribution: '© OpenStreetMap contributors'
+                }).addTo(map);
+                console.log('Tile layer added successfully');
+            } catch (error) {
+                console.error('Error adding tile layer:', error);
+            }
+
+            // Add error event listener to map
+            map.on('error', function(e) {
+                console.error('Map error:', e);
+            });
+
+            // Add load event listener
+            map.on('load', function() {
+                console.log('Map loaded successfully');
+            });
+
+            // Add viewport size logging
+            console.log('Map container dimensions:', {
+                width: document.getElementById('map').clientWidth,
+                height: document.getElementById('map').clientHeight
+            });
+
+            // Create icons (your existing icon definitions)
+            const userIcon = L.divIcon({
+                html: `
+                    <div style="
+                        background-color: white;
+                        border-radius: 50%;
+                        width: 32px;
+                        height: 32px;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        box-shadow: 0 0 4px rgba(0,0,0,0.3);
+                        border: 2px solid var(--accent-green);
+                    ">
+                        <img src="passengericon.png" style="
+                            width: 20px;
+                            height: 20px;
+                        ">
+                    </div>`,
+                className: 'user-location-marker',
+                iconSize: [32, 32],
+                iconAnchor: [16, 16]
+            });
+
+            const busIcon = L.divIcon({
+                html: `
+                    <div style="
+                        background-color: white;
+                        border-radius: 50%;
+                        width: 32px;
+                        height: 32px;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        box-shadow: 0 0 4px rgba(0,0,0,0.3);
+                        border: 2px solid var(--primary-gradient-start);
+                    ">
+                        <img src="busicon.png" style="
+                            width: 20px;
+                            height: 20px;
+                        ">
+                    </div>`,
+                className: 'bus-location-marker',
+                iconSize: [32, 32],
+                iconAnchor: [16, 16],
+                popupAnchor: [0, -16]
+            });
+
+            // Try to get selected bus from sessionStorage
+            try {
+                selectedBus = JSON.parse(sessionStorage.getItem('selectedBus'));
+                console.log('Parsed selectedBus data:', selectedBus);
+            } catch (error) {
+                console.error('Error parsing selectedBus from sessionStorage:', error);
+                selectedBus = null;
+            }
+
+            // Rest of your existing functions but remove duplicate declarations
+            async function getBusLocation(busNumber) {
+                try {
+                    const { data, error } = await supabaseClient
+                        .from('bustrip')
+                        .select(`
+                            busnumber,
+                            latitude,
+                            longitude,
+                            recorded_at,
+                            routeid
+                        `)
+                        .eq('busnumber', busNumber)
+                        .order('recorded_at', { ascending: false })
+                        .limit(1)
+                        .single();
+
+                    console.log('Bus location query result:', { data, error });
+
+                    if (error) throw error;
+
+                    if (data) {
+                        // Get route name from sessionStorage instead of database
+                        const storedBus = JSON.parse(sessionStorage.getItem('selectedBus'));
+                        const busInfo = {
+                            busNumber: data.busnumber,
+                            latitude: data.latitude,
+                            longitude: data.longitude,
+                            recorded_at: data.recorded_at,
+                            routeName: storedBus.routeName // Use stored route name
+                        };
+
+                        console.log('Processed bus info:', busInfo);
+                        updateBusMarker(busInfo);
+                        updateBusInfo(busInfo);
+                        return busInfo;
+                    }
+                } catch (error) {
+                    console.error('Error getting bus location:', error);
+                    console.error('Error details:', error.message);
+                }
+            }
+
+            function updateBusMarker(busInfo) {
+                // Remove existing marker if it exists
+                const existingMarker = busMarkers.get(busInfo.busNumber);
+                if (existingMarker) {
+                    existingMarker.remove();
+                }
+
+                // Create new marker
+                const marker = L.marker(
+                    [busInfo.latitude, busInfo.longitude],
+                    { icon: busIcon }
+                ).addTo(map)
+                .bindPopup(`
+                    <b>Bus ${busInfo.busNumber}</b><br>
+                    Route: ${busInfo.routeName}<br>
+                    Last updated: ${new Date(busInfo.recorded_at).toLocaleTimeString()}
+                `);
+
+                // Store new marker
+                busMarkers.set(busInfo.busNumber, marker);
+
+                // If we have user location, update bounds to show both markers
+                if (userMarker) {
+                    const userLatLng = userMarker.getLatLng();
+                    const bounds = L.latLngBounds(
+                        [userLatLng.lat, userLatLng.lng],
+                        [busInfo.latitude, busInfo.longitude]
+                    );
+                    map.fitBounds(bounds, { padding: [50, 50] });
+                }
+            }
+
+            // Replace the existing updateBusInfo function
+            function updateBusInfo(busInfo) {
+                console.log('Starting updateBusInfo with:', busInfo);
+
+                // Update UI elements
+                document.querySelector('.bus-number').textContent = `Bus ${busInfo.busNumber}`;
+                document.querySelector('.bus-route').textContent = `Route: ${busInfo.routeName}`;
+                document.querySelector('.time-value').textContent = 
+                    new Date(busInfo.recorded_at).toLocaleTimeString();
+
+                // Check if user marker exists and has valid coordinates
+                if (userMarker && userMarker.getLatLng()) {
+                    const userLatLng = userMarker.getLatLng();
+                    console.log('User location found:', {
+                        lat: userLatLng.lat,
+                        lng: userLatLng.lng
+                    });
+
+                    // Verify bus coordinates
+                    console.log('Bus location:', {
+                        latitude: busInfo.latitude,
+                        longitude: busInfo.longitude
+                    });
+
+                    // Call updateDistanceAndETA with debug wrapper
+                    try {
+                        const result = updateDistanceAndETA(
+                            { lat: userLatLng.lat, lng: userLatLng.lng },
+                            { latitude: busInfo.latitude, longitude: busInfo.longitude }
+                        );
+                        console.log('Distance and ETA calculation result:', result);
+                    } catch (error) {
+                        console.error('Error in updateDistanceAndETA:', error);
+                    }
+                } else {
+                    console.warn('User location not available - userMarker:', userMarker);
+                    document.getElementById('distanceValue').textContent = '--';
+                    document.getElementById('etaValue').textContent = '--';
+                }
+            }
+
+            // Replace the existing updateDistanceAndETA function
+            function updateDistanceAndETA(userPosition, busPosition) {
+                console.log('Starting updateDistanceAndETA:', { userPosition, busPosition });
+                
+                // Calculate distance
+                const distanceInMeters = map.distance(
+                    [userPosition.lat, userPosition.lng],
+                    [busPosition.latitude, busPosition.longitude]
+                );
+                const distanceInKm = distanceInMeters / 1000;
+
+                // Log distance calculation
+                console.log('Distance calculation:', {
+                    distanceInMeters: Math.round(distanceInMeters),
+                    distanceInKm: distanceInKm.toFixed(2)
+                });
+
+                // Calculate ETA using 60 km/h speed
+                const averageSpeedKmH = 60; // Changed from 30 to 60
+                const etaMinutes = Math.round((distanceInKm / averageSpeedKmH) * 60);
+
+                // Log ETA calculation
+                console.log('ETA calculation:', {
+                    averageSpeed: `${averageSpeedKmH} km/h`,
+                    formula: `(${distanceInKm.toFixed(2)}km / ${averageSpeedKmH}km/h) * 60`,
+                    etaMinutes: etaMinutes
+                });
+
+                // Format display values
+                const distanceText = distanceInKm < 1 
+                    ? `${Math.round(distanceInMeters)}m`
+                    : `${distanceInKm.toFixed(1)}km`;
+
+                const etaText = etaMinutes >= 60 
+                    ? `${Math.floor(etaMinutes/60)}h ${etaMinutes%60}m`
+                    : `${etaMinutes}m`;
+
+                // Update UI
+                document.getElementById('distanceValue').textContent = distanceText;
+                document.getElementById('etaValue').textContent = etaText;
+
+                // Log final values
+                console.log('Updated display values:', {
+                    distance: distanceText,
+                    eta: etaText
+                });
+
+                return { distanceInKm, etaMinutes };
+            }
+
+            // Initialize map with selected bus
+            if (selectedBus) {
+                getBusLocation(selectedBus.busNumber);
+                
+                // Set up refresh interval
+                setInterval(() => {
+                    getBusLocation(selectedBus.busNumber);
+                }, 10000);
+            }
+
+            // Add event listeners
+            document.getElementById('refreshBtn').addEventListener('click', () => {
+                if (selectedBus?.busNumber) {
+                    getBusLocation(selectedBus.busNumber);
+                }
+            });
+
+            // Initialize user location tracking
+            if ('geolocation' in navigator) {
+                navigator.geolocation.watchPosition(
+                    updateUserLocation,
+                    error => {
+                        console.error('Error getting location:', error);
+                        alert('Unable to get your location. Please check your location settings.');
+                    },
+                    { 
+                        enableHighAccuracy: true,
+                        timeout: 5000,
+                        maximumAge: 0
+                    }
+                );
+            }
+
+            // Add back button functionality
+            document.getElementById('backButton').addEventListener('click', () => {
+                window.history.back();
+            });
+
+            // Function to update user location and calculate distance
+            function updateUserLocation(position) {
+                const { latitude, longitude } = position.coords;
+                
+                // Update user marker
+                if (userMarker) {
+                    userMarker.setLatLng([latitude, longitude]);
+                } else {
+                    userMarker = L.marker([latitude, longitude], { icon: userIcon }).addTo(map);
+                }
+
+                // If we have bus location, calculate distance and update UI
+                if (selectedBus) {
+                    const busMarker = busMarkers.get(selectedBus.busNumber);
+                    if (busMarker) {
+                        const busLatLng = busMarker.getLatLng();
+                        const bounds = L.latLngBounds(
+                            [latitude, longitude],
+                            [busLatLng.lat, busLatLng.lng]
+                        );
+                        map.fitBounds(bounds, { padding: [50, 50] });
+                    }
+
+                    const distance = map.distance(
+                        [latitude, longitude],
+                        [selectedBus.latitude, selectedBus.longitude]
+                    ) / 1000; // Convert to kilometers
+
+                    // Update distance display
+                    document.getElementById('distanceValue').textContent = 
+                        distance < 1
+                            ? `${Math.round(distance * 1000)}m`
+                            : `${distance.toFixed(1)}km`;
+
+                    // Calculate ETA (assuming average speed of 30km/h)
+                    const etaMinutes = Math.round((distance / 30) * 60);
+                    document.getElementById('etaValue').textContent = `${etaMinutes} mins`;
+                }
+            }
+
+            // Get user's location
+            if ('geolocation' in navigator) {
+                navigator.geolocation.watchPosition(
+                    updateUserLocation,
+                    error => {
+                        console.error('Error getting location:', error);
+                        alert('Unable to get your location. Please check your location settings.');
+                    },
+                    { 
+                        enableHighAccuracy: true,
+                        timeout: 5000,
+                        maximumAge: 0
+                    }
+                );
+            } else {
+                alert('Geolocation is not supported by your browser');
+            }
+
+            // Display bus from stored data
+            if (selectedBus) {
+                // Create bus marker
+                busMarker = L.marker(
+                    [selectedBus.latitude, selectedBus.longitude], 
+                    { icon: busIcon }
+                )
+                .addTo(map)
+                .bindPopup(`
+                    <b>Bus ${selectedBus.busNumber}</b><br>
+                    Route: ${selectedBus.routeName}<br>
+                    Last updated: ${new Date(selectedBus.recorded_at).toLocaleTimeString()}
+                `);
+
+                // Update UI with bus details
+                document.querySelector('.bus-number').textContent = `Bus ${selectedBus.busNumber}`;
+                document.querySelector('.bus-route').textContent = `Route: ${selectedBus.routeName}`;
+                document.querySelector('.time-value').textContent = 
+                    new Date(selectedBus.recorded_at).toLocaleTimeString();
+            }
+
+            // Function to fetch buses using the stored direction and stop
+            async function fetchBusesData() {
+                try {
+                    const stop = sessionStorage.getItem('selectedDestination');
+                    const direction = sessionStorage.getItem('selectedDirection');
+                    
+                    console.log('Fetching buses for:', {stop, direction});
+                    
+                    const { data, error } = await supabaseClient.rpc(
+                        'get_buses_from_direction_and_stopname',
+                        { 
+                            stop: stop,
+                            dir: direction
+                        }
+                    );
+
+                    if (error) {
+                        console.error('RPC Error:', error);
+                        throw error;
+                    }
+
+                    console.log('Received bus data:', data);
+                    return data || [];
+                } catch (error) {
+                    console.error('Error fetching buses:', error);
+                    return [];
+                }
+            }
+
+            // Function to update map with new bus positions
+            function updateBusMarkers(buses) {
+                const storedBus = JSON.parse(sessionStorage.getItem('selectedBus'));
+                
+                busMarkers.forEach(marker => marker.remove());
+                busMarkers.clear();
+
+                buses.forEach(bus => {
+                    const marker = L.marker(
+                        [bus.latitude, bus.longitude],
+                        { icon: busIcon }
+                    ).addTo(map)
+                    .bindPopup(`
+                        <b>Bus ${bus.busnumber}</b><br>
+                        Route: ${storedBus.routeName}<br>
+                        Last updated: ${new Date(bus.recorded_at).toLocaleTimeString()}
+                    `);
+
+                    busMarkers.set(bus.busnumber, marker);
+                });
+            }
+
+            // Function to refresh bus data
+            async function refreshBusData() {
+                const loadingIndicator = document.getElementById('loadingIndicator');
+                loadingIndicator.style.display = 'flex';
+
+                try {
+                    const buses = await fetchBusesData();
+                    updateBusMarkers(buses);
+                } finally {
+                    loadingIndicator.style.display = 'none';
+                }
+            }
+
+            // Initial fetch
+            refreshBusData();
+
+            // Set up interval for periodic updates (every minute)
+            setInterval(() => {
+                console.log('------- Minute Update -------');
+                console.log('Time:', new Date().toLocaleTimeString());
+                refreshBusData();
+            }, 60000);
+
+            // Add refresh button handler
+            document.getElementById('refreshBtn').addEventListener('click', refreshBusData);
+
+            // Add this function to calculate distance and ETA with detailed logging
+            function updateDistanceAndETA(userPosition, busPosition) {
+                console.log('Starting updateDistanceAndETA:', { userPosition, busPosition });
+                // Log input positions
+                console.log('Calculating ETA:', {
+                    userPosition: { lat: userPosition.lat, lng: userPosition.lng },
+                    busPosition: { lat: busPosition.latitude, lng: busPosition.longitude },
+                    timestamp: new Date().toLocaleTimeString()
+                });
+
+                // Calculate distance
+                const distanceInMeters = map.distance(
+                    [userPosition.lat, userPosition.lng],
+                    [busPosition.latitude, busPosition.longitude]
+                );
+                const distanceInKm = distanceInMeters / 1000;
+
+                // Log distance calculation
+                console.log('Distance calculation:', {
+                    distanceInMeters: Math.round(distanceInMeters),
+                    distanceInKm: distanceInKm.toFixed(2)
+                });
+
+                // Calculate ETA
+                const averageSpeedKmH = 30; // 30 km/h average speed
+                const etaMinutes = Math.round((distanceInKm / averageSpeedKmH) * 60);
+
+                // Log ETA calculation
+                console.log('ETA calculation:', {
+                    averageSpeed: `${averageSpeedKmH} km/h`,
+                    formula: `(${distanceInKm.toFixed(2)}km / ${averageSpeedKmH}km/h) * 60`,
+                    etaMinutes: etaMinutes
+                });
+
+                // Format display values
+                const distanceText = distanceInKm < 1 
+                    ? `${Math.round(distanceInMeters)}m`
+                    : `${distanceInKm.toFixed(1)}km`;
+
+                const etaText = etaMinutes >= 60 
+                    ? `${Math.floor(etaMinutes/60)}h ${etaMinutes%60}m`
+                    : `${etaMinutes}m`;
+
+                // Update UI
+                document.getElementById('distanceValue').textContent = distanceText;
+                document.getElementById('etaValue').textContent = etaText;
+
+                // Log final values
+                console.log('Updated display values:', {
+                    distance: distanceText,
+                    eta: etaText
+                });
+
+                return { distanceInKm, etaMinutes };
+            }
+
+            // Replace the helper function calculateDistanceAndETA
+            function calculateDistanceAndETA(distanceInMeters) {
+                const distanceInKm = distanceInMeters / 1000;
+                const distanceText = distanceInKm < 1 
+                    ? `${Math.round(distanceInMeters)}m`
+                    : `${distanceInKm.toFixed(1)}km`;
+
+                // Calculate ETA assuming average speed of 60km/h
+                const averageSpeedKmH = 30; // Changed from 30 to 60
+                const etaMinutes = Math.round((distanceInKm / averageSpeedKmH) * 60);
+                const etaText = etaMinutes >= 60 
+                    ? `${Math.floor(etaMinutes/60)}h ${etaMinutes%60}m`
+                    : `${etaMinutes}m`;
+
+                return { distanceText, etaText };
+            }
+
+            // Add event listener to onboard button
+            document.getElementById('onboardBtn').addEventListener('click', function() {
+                // Get current bus information and distance
+                const distanceValue = document.getElementById('distanceValue').textContent;
+                const etaValue = document.getElementById('etaValue').textContent;
+                
+                const busInfo = {
+                    busNumber: selectedBus.busNumber,
+                    routeName: selectedBus.routeName,
+                    latitude: selectedBus.latitude,
+                    longitude: selectedBus.longitude,
+                    recorded_at: selectedBus.recorded_at,
+                    distance: distanceValue,
+                    eta: etaValue
+                };
+
+                // Store bus information for onboard.html
+                sessionStorage.setItem('onboardBusInfo', JSON.stringify(busInfo));
+
+                // Redirect to onboard.html
+                window.location.href = 'onboard.html';
+            });
+
+            // Add this code in the DOMContentLoaded event listener, after all the other initializations
+
+            // Add event listener to onboard button
+            document.getElementById('onboardBtn').addEventListener('click', function() {
+                // Get current bus information
+                const busNumber = document.querySelector('.bus-number').textContent.replace('Bus ', '');
+                const routeName = document.querySelector('.bus-route').textContent.replace('Route: ', '');
+                const distance = document.getElementById('distanceValue').textContent;
+                const eta = document.getElementById('etaValue').textContent;
+                const lastUpdated = document.querySelector('.time-value').textContent;
+                
+                // Get bus coordinates from the marker
+                const busMarker = busMarkers.get(selectedBus.busNumber);
+                const busPosition = busMarker ? busMarker.getLatLng() : null;
+                
+                // Create bus info object for onboard.html
+                const busInfo = {
+                    busNumber: busNumber,
+                    routeName: routeName,
+                    distance: distance,
+                    eta: eta,
+                    lastUpdated: lastUpdated,
+                    latitude: busPosition ? busPosition.lat : null,
+                    longitude: busPosition ? busPosition.lng : null,
+                    timestamp: new Date().toISOString()
+                };
+
+                // Store bus information for onboard.html
+                sessionStorage.setItem('onboardBusInfo', JSON.stringify(busInfo));
+                
+                // Show loading indicator
+                document.getElementById('loadingIndicator').style.display = 'flex';
+                
+                // Redirect to onboard.html with a small delay to show loading
+                setTimeout(() => {
+                    window.location.href = 'onboard.html';
+                }, 500);
+            });
+        });
+    </script>
+</body>
+</html>
