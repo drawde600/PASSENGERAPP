@@ -1,15 +1,14 @@
 // service-worker.js - Enhanced for background operation
-const CACHE_NAME = 'hello-pwa-cache-v1';
+const CACHE_NAME = 'passenger-cache-v1';
 const urlsToCache = [
   '/',
-  '/index.html',
+  '/passenger.html',
+  '/buslist.html',
+  '/viewmap.html',
+  '/onboard.html',
   '/manifest.json',
-  '/app.js',
   'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js'
 ];
-
-// Database for storing location data when offline
-let locationDB;
 
 // Initialize IndexedDB for offline data storage
 function initDB() {
@@ -17,7 +16,7 @@ function initDB() {
     const request = indexedDB.open('LocationDatabase', 1);
     
     request.onerror = event => {
-      console.error('IndexedDB error:', event.target.error);
+      console.error('[SW] IndexedDB error:', event.target.error);
       reject(event.target.error);
     };
     
@@ -28,54 +27,27 @@ function initDB() {
     };
     
     request.onsuccess = event => {
-      locationDB = event.target.result;
-      console.log('IndexedDB initialized successfully');
-      resolve(locationDB);
+      console.log('[SW] IndexedDB initialized successfully');
+      resolve(event.target.result);
     };
-  });
-}
-
-// Save location to IndexedDB
-async function saveLocationToIndexedDB(locationData) {
-  return new Promise((resolve, reject) => {
-    const transaction = locationDB.transaction(['locations'], 'readwrite');
-    const store = transaction.objectStore('locations');
-    const request = store.add(locationData);
-    
-    request.onsuccess = () => resolve(request.result);
-    request.onerror = event => reject(event.target.error);
   });
 }
 
 // Get all stored locations from IndexedDB
 async function getStoredLocations() {
-  return new Promise((resolve, reject) => {
-    const transaction = locationDB.transaction(['locations'], 'readonly');
-    const store = transaction.objectStore('locations');
-    const request = store.getAll();
-    
-    request.onsuccess = () => resolve(request.result);
-    request.onerror = event => reject(event.target.error);
-  });
+  // This function has been removed
 }
 
 // Clear locations after successful sync
 async function clearStoredLocations() {
-  return new Promise((resolve, reject) => {
-    const transaction = locationDB.transaction(['locations'], 'readwrite');
-    const store = transaction.objectStore('locations');
-    const request = store.clear();
-    
-    request.onsuccess = () => resolve();
-    request.onerror = event => reject(event.target.error);
-  });
+  // This function has been removed
 }
 
 self.addEventListener('install', event => {
   event.waitUntil(
     caches.open(CACHE_NAME)
       .then(cache => {
-        console.log('Opened cache');
+        console.log('[SW] Opened cache');
         return cache.addAll(urlsToCache);
       })
       .then(() => initDB())
@@ -103,121 +75,15 @@ self.addEventListener('fetch', event => {
         return response || fetch(event.request);
       })
       .catch(error => {
-        console.error('Fetch error:', error);
+        console.error('[SW] Fetch error:', error);
         // You might want to return a custom offline page here
       })
   );
 });
 
-// Listen for background sync events
-self.addEventListener('sync', event => {
-  if (event.tag === 'sync-locations') {
-    event.waitUntil(syncLocations());
-  }
-});
-
-// Handle periodic background sync
-self.addEventListener('periodicsync', event => {
-  if (event.tag === 'location-update') {
-    event.waitUntil(recordLocationInBackground());
-  }
-});
-
 // Periodic background location capturing
 async function recordLocationInBackground() {
-  try {
-    // Get current position in the background
-    const position = await new Promise((resolve, reject) => {
-      navigator.geolocation.getCurrentPosition(resolve, reject, { 
-        enableHighAccuracy: true,
-        timeout: 5000,
-        maximumAge: 0
-      });
-    });
-    
-    const now = new Date();
-    const timestamp = now.toISOString();
-    
-    // Convert to numbers for numeric column types
-    const latitude = parseFloat(position.coords.latitude);
-    const longitude = parseFloat(position.coords.longitude);
-    const altitude = position.coords.altitude ? parseFloat(position.coords.altitude) : null;
-    
-    // Create location data object
-    const locationData = {
-      timestamp: timestamp,
-      userid: await getStoredUserId(),
-      latitude: latitude,
-      longitude: longitude,
-      elevation: altitude
-    };
-    
-    // Save location data to IndexedDB for later sync
-    await saveLocationToIndexedDB(locationData);
-    console.log('[Background] Location recorded:', locationData);
-    
-    // Try to sync immediately if possible
-    if (navigator.onLine) {
-      await syncLocations();
-    }
-    
-    return true;
-  } catch (error) {
-    console.error('[Background] Error recording location:', error);
-    return false;
-  }
-}
-
-// Sync stored locations to the server
-async function syncLocations() {
-  try {
-    if (!navigator.onLine) {
-      console.log('Currently offline, will sync when online');
-      return false;
-    }
-    
-    console.log('Starting location sync...');
-    
-    // Get all stored locations
-    const locations = await getStoredLocations();
-    
-    if (locations.length === 0) {
-      console.log('No locations to sync');
-      return true;
-    }
-    
-    console.log(`Syncing ${locations.length} locations...`);
-    
-    // Get Supabase client info from the main thread
-    const clientInfo = await getSupabaseClientInfo();
-    
-    // Create a new Supabase client
-    // Note: In a real implementation, you'd need to load the Supabase library in the worker
-    // This is simplified for demonstration purposes
-    const response = await fetch('https://jeszxshbzmnxdoqjltuk.supabase.co/rest/v1/locations', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'apikey': clientInfo.supabaseKey,
-        'Authorization': `Bearer ${clientInfo.supabaseKey}`
-      },
-      body: JSON.stringify(locations)
-    });
-    
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-    
-    console.log('Locations synced successfully');
-    
-    // Clear synced locations
-    await clearStoredLocations();
-    
-    return true;
-  } catch (error) {
-    console.error('Error syncing locations:', error);
-    return false;
-  }
+  // This function has been removed
 }
 
 // Get Supabase client info from the main thread
@@ -225,8 +91,8 @@ async function getSupabaseClientInfo() {
   const clients = await self.clients.matchAll();
   if (clients.length === 0) {
     return {
-      supabaseUrl: 'https://jeszxshbzmnxdoqjltuk.supabase.co',
-      supabaseKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Implc3p4c2hiem1ueGRvcWpsdHVrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDA4MzM0NjIsImV4cCI6MjA1NjQwOTQ2Mn0.FgZmXxDX00_9OLyLgFM_dyrPpb1eISeIte9s1edLPcE'
+      supabaseUrl: 'https://bguwiprkgcxrqauztmvd.supabase.co',
+      supabaseKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJndXdpcHJrZ2N4cnFhdXp0bXZkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDA3ODAxOTksImV4cCI6MjA1NjM1NjE5OX0.ATbtMPiPt8VvtyVBu-gpmDo8Mo1eWy1aFXKfb6m1QsE'
     };
   }
   
@@ -241,39 +107,6 @@ async function getSupabaseClientInfo() {
   });
 }
 
-// Get stored user ID
-async function getStoredUserId() {
-  // Try to get user ID from clients
-  try {
-    const clients = await self.clients.matchAll();
-    if (clients.length > 0) {
-      return new Promise((resolve, reject) => {
-        const messageChannel = new MessageChannel();
-        messageChannel.port1.onmessage = event => resolve(event.data.userId);
-        clients[0].postMessage({ type: 'GET_USER_ID' }, [messageChannel.port2]);
-        // Add timeout
-        setTimeout(() => {
-          // Default user ID if we can't get it
-          resolve(generateUUID());
-        }, 1000);
-      });
-    }
-  } catch (error) {
-    console.error('Error getting user ID from client:', error);
-  }
-  
-  // Fallback to generating a new ID
-  return generateUUID();
-}
-
-// Generate UUID (same function from your app.js)
-function generateUUID() {
-  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
-    const r = Math.random() * 16 | 0, 
-          v = c === 'x' ? r : (r & 0x3 | 0x8);
-    return v.toString(16);
-  });
-}
 
 // For handling messages from the main thread
 self.addEventListener('message', event => {
@@ -284,7 +117,7 @@ self.addEventListener('message', event => {
     event.ports[0].postMessage({ success: true });
   } else if (event.data.type === 'GET_USER_ID') {
     // Return stored user ID
-    event.ports[0].postMessage({ userId: self.userId || generateUUID() });
+    event.ports[0].postMessage({ userId: self.userId });
   } else if (event.data.type === 'RECORD_LOCATION_NOW') {
     // Manually trigger location recording
     event.waitUntil(recordLocationInBackground());

@@ -272,6 +272,13 @@
             background-color: var(--dark-bg);
         }
     </style>
+
+    <!-- First load Supabase -->
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+    <!-- Then load Leaflet -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+    <!-- Then your custom script -->
+
 </head>
 <body>
     <div class="app-container">
@@ -330,53 +337,51 @@
         </div>
     </div>
 
-    <!-- First load Supabase -->
-    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
-    <!-- Then load Leaflet -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
-    <!-- Then your custom script -->
     <script>
+
+        // Initialize Supabase client
+        const { createClient } = supabase;
+        const supabaseUrl = 'https://bguwiprkgcxrqauztmvd.supabase.co';
+        const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJndXdpcHJrZ2N4cnFhdXp0bXZkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDA3ODAxOTksImV4cCI6MjA1NjM1NjE5OX0.ATbtMPiPt8VvtyVBu-gpmDo8Mo1eWy1aFXKfb6m1QsE';
+        const supabaseClient = window.supabase.createClient(supabaseUrl, supabaseKey)
+
         document.addEventListener('DOMContentLoaded', function() {
+            console.log('[VIEWMAP] DOMContentLoaded');
+           
             // Initialize shared variables at the top
             let selectedBus = null;
             let userMarker = null;
             const busMarkers = new Map(); // Define busMarkers as const at the top level
-            
-            // Initialize Supabase client
-            const { createClient } = supabase;
-            const supabaseClient = createClient(
-                'https://jeszxshbzmnxdoqjltuk.supabase.co',
-                'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Implc3p4c2hiem1ueGRvcWpsdHVrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDA4MzM0NjIsImV4cCI6MjA1NjQwOTQ2Mn0.FgZmXxDX00_9OLyLgFM_dyrPpb1eISeIte9s1edLPcE'
-            );
+
 
             // Initialize map and icons
             const map = L.map('map').setView([15.3267, 120.0830], 13);
             
             // Add this code right after the map initialization
-            console.log('Map initialized:', map);
+            console.log('[VIEWMAP] Map initialized:', map);
 
             // Add tile layer with logging
             try {
                 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
                     attribution: '© OpenStreetMap contributors'
                 }).addTo(map);
-                console.log('Tile layer added successfully');
+                console.log('[VIEWMAP] Tile layer added successfully');
             } catch (error) {
-                console.error('Error adding tile layer:', error);
+                console.error('[VIEWMAP] Error adding tile layer:', error);
             }
 
             // Add error event listener to map
             map.on('error', function(e) {
-                console.error('Map error:', e);
+                console.error('[VIEWMAP] Map error:', e);
             });
 
             // Add load event listener
             map.on('load', function() {
-                console.log('Map loaded successfully');
+                console.log('[VIEWMAP] Map loaded successfully');
             });
 
             // Add viewport size logging
-            console.log('Map container dimensions:', {
+            console.log('[VIEWMAP] Map container dimensions:', {
                 width: document.getElementById('map').clientWidth,
                 height: document.getElementById('map').clientHeight
             });
@@ -395,7 +400,7 @@
                         box-shadow: 0 0 4px rgba(0,0,0,0.3);
                         border: 2px solid var(--accent-green);
                     ">
-                        <img src="passengericon.png" style="
+                        <img src="icons/passengericon.png" style="
                             width: 20px;
                             height: 20px;
                         ">
@@ -418,7 +423,7 @@
                         box-shadow: 0 0 4px rgba(0,0,0,0.3);
                         border: 2px solid var(--primary-gradient-start);
                     ">
-                        <img src="busicon.png" style="
+                        <img src="icons/busicon.png" style="
                             width: 20px;
                             height: 20px;
                         ">
@@ -432,14 +437,15 @@
             // Try to get selected bus from sessionStorage
             try {
                 selectedBus = JSON.parse(sessionStorage.getItem('selectedBus'));
-                console.log('Parsed selectedBus data:', selectedBus);
+                console.log('[VIEWMAP] Parsed selectedBus data:', selectedBus);
             } catch (error) {
-                console.error('Error parsing selectedBus from sessionStorage:', error);
+                console.error('[VIEWMAP] Error parsing selectedBus from sessionStorage:', error);
                 selectedBus = null;
             }
 
             // Rest of your existing functions but remove duplicate declarations
             async function getBusLocation(busNumber) {
+                console.log('[VIEWMAP] Getting bus location for:', busNumber);
                 try {
                     const { data, error } = await supabaseClient
                         .from('bustrip')
@@ -455,7 +461,7 @@
                         .limit(1)
                         .single();
 
-                    console.log('Bus location query result:', { data, error });
+                    console.log('[VIEWMAP] Bus location query result:', { data, error });
 
                     if (error) throw error;
 
@@ -470,18 +476,19 @@
                             routeName: storedBus.routeName // Use stored route name
                         };
 
-                        console.log('Processed bus info:', busInfo);
+                        console.log('[VIEWMAP] Processed bus info:', busInfo);
                         updateBusMarker(busInfo);
                         updateBusInfo(busInfo);
                         return busInfo;
                     }
                 } catch (error) {
-                    console.error('Error getting bus location:', error);
-                    console.error('Error details:', error.message);
+                    console.error('[VIEWMAP] Error getting bus location:', error);
+                    console.error('[VIEWMAP] Error details:', error.message);
                 }
             }
 
             function updateBusMarker(busInfo) {
+                console.log('[VIEWMAP] Updating bus marker for:', busInfo.busNumber);
                 // Remove existing marker if it exists
                 const existingMarker = busMarkers.get(busInfo.busNumber);
                 if (existingMarker) {
@@ -515,7 +522,7 @@
 
             // Replace the existing updateBusInfo function
             function updateBusInfo(busInfo) {
-                console.log('Starting updateBusInfo with:', busInfo);
+                console.log('[VIEWMAP] Starting updateBusInfo with:', busInfo);
 
                 // Update UI elements
                 document.querySelector('.bus-number').textContent = `Bus ${busInfo.busNumber}`;
@@ -526,13 +533,13 @@
                 // Check if user marker exists and has valid coordinates
                 if (userMarker && userMarker.getLatLng()) {
                     const userLatLng = userMarker.getLatLng();
-                    console.log('User location found:', {
+                    console.log('[VIEWMAP] User location found:', {
                         lat: userLatLng.lat,
                         lng: userLatLng.lng
                     });
 
                     // Verify bus coordinates
-                    console.log('Bus location:', {
+                    console.log('[VIEWMAP] Bus location:', {
                         latitude: busInfo.latitude,
                         longitude: busInfo.longitude
                     });
@@ -543,12 +550,12 @@
                             { lat: userLatLng.lat, lng: userLatLng.lng },
                             { latitude: busInfo.latitude, longitude: busInfo.longitude }
                         );
-                        console.log('Distance and ETA calculation result:', result);
+                        console.log('[VIEWMAP] Distance and ETA calculation result:', result);
                     } catch (error) {
-                        console.error('Error in updateDistanceAndETA:', error);
+                        console.error('[VIEWMAP] Error in updateDistanceAndETA:', error);
                     }
                 } else {
-                    console.warn('User location not available - userMarker:', userMarker);
+                    console.warn('[VIEWMAP] User location not available - userMarker:', userMarker);
                     document.getElementById('distanceValue').textContent = '--';
                     document.getElementById('etaValue').textContent = '--';
                 }
@@ -556,7 +563,7 @@
 
             // Replace the existing updateDistanceAndETA function
             function updateDistanceAndETA(userPosition, busPosition) {
-                console.log('Starting updateDistanceAndETA:', { userPosition, busPosition });
+                console.log('[VIEWMAP] Starting updateDistanceAndETA:', { userPosition, busPosition });
                 
                 // Calculate distance
                 const distanceInMeters = map.distance(
@@ -566,7 +573,7 @@
                 const distanceInKm = distanceInMeters / 1000;
 
                 // Log distance calculation
-                console.log('Distance calculation:', {
+                console.log('[VIEWMAP] Distance calculation:', {
                     distanceInMeters: Math.round(distanceInMeters),
                     distanceInKm: distanceInKm.toFixed(2)
                 });
@@ -576,7 +583,7 @@
                 const etaMinutes = Math.round((distanceInKm / averageSpeedKmH) * 60);
 
                 // Log ETA calculation
-                console.log('ETA calculation:', {
+                console.log('[VIEWMAP] ETA calculation:', {
                     averageSpeed: `${averageSpeedKmH} km/h`,
                     formula: `(${distanceInKm.toFixed(2)}km / ${averageSpeedKmH}km/h) * 60`,
                     etaMinutes: etaMinutes
@@ -596,7 +603,7 @@
                 document.getElementById('etaValue').textContent = etaText;
 
                 // Log final values
-                console.log('Updated display values:', {
+                console.log('[VIEWMAP] Updated display values:', {
                     distance: distanceText,
                     eta: etaText
                 });
@@ -616,6 +623,7 @@
 
             // Add event listeners
             document.getElementById('refreshBtn').addEventListener('click', () => {
+                console.log('[VIEWMAP] Refresh button clicked');
                 if (selectedBus?.busNumber) {
                     getBusLocation(selectedBus.busNumber);
                 }
@@ -623,11 +631,12 @@
 
             // Initialize user location tracking
             if ('geolocation' in navigator) {
+                console.log('[VIEWMAP] Geolocation is supported');
                 navigator.geolocation.watchPosition(
                     updateUserLocation,
                     error => {
-                        console.error('Error getting location:', error);
-                        alert('Unable to get your location. Please check your location settings.');
+                        console.error('[VIEWMAP] Error getting location:', error);
+                        alert('[VIEWMAP] Unable to get your location. Please check your location settings.');
                     },
                     { 
                         enableHighAccuracy: true,
@@ -639,11 +648,13 @@
 
             // Add back button functionality
             document.getElementById('backButton').addEventListener('click', () => {
+                console.log('[VIEWMAP] Back button clicked');
                 window.history.back();
             });
 
             // Function to update user location and calculate distance
             function updateUserLocation(position) {
+                console.log('[VIEWMAP] Updating user location:', position);
                 const { latitude, longitude } = position.coords;
                 
                 // Update user marker
@@ -684,11 +695,12 @@
 
             // Get user's location
             if ('geolocation' in navigator) {
+                console.log('[VIEWMAP] Geolocation is supported');
                 navigator.geolocation.watchPosition(
                     updateUserLocation,
                     error => {
-                        console.error('Error getting location:', error);
-                        alert('Unable to get your location. Please check your location settings.');
+                        console.error('[VIEWMAP] Error getting location:', error);
+                        alert('[VIEWMAP] Unable to get your location. Please check your location settings.');
                     },
                     { 
                         enableHighAccuracy: true,
@@ -697,7 +709,7 @@
                     }
                 );
             } else {
-                alert('Geolocation is not supported by your browser');
+                alert('[VIEWMAP] Geolocation is not supported by your browser');
             }
 
             // Display bus from stored data
@@ -723,11 +735,12 @@
 
             // Function to fetch buses using the stored direction and stop
             async function fetchBusesData() {
+                console.log('[VIEWMAP] Fetching buses data');
                 try {
                     const stop = sessionStorage.getItem('selectedDestination');
                     const direction = sessionStorage.getItem('selectedDirection');
                     
-                    console.log('Fetching buses for:', {stop, direction});
+                    console.log('[VIEWMAP] Fetching buses for:', {stop, direction});
                     
                     const { data, error } = await supabaseClient.rpc(
                         'get_buses_from_direction_and_stopname',
@@ -738,20 +751,21 @@
                     );
 
                     if (error) {
-                        console.error('RPC Error:', error);
+                        console.error('[VIEWMAP] RPC Error:', error);
                         throw error;
                     }
 
-                    console.log('Received bus data:', data);
+                    console.log('[VIEWMAP] Received bus data:', data);
                     return data || [];
                 } catch (error) {
-                    console.error('Error fetching buses:', error);
+                    console.error('[VIEWMAP] Error fetching buses:', error);
                     return [];
                 }
             }
 
             // Function to update map with new bus positions
             function updateBusMarkers(buses) {
+                console.log('[VIEWMAP] Updating bus markers');
                 const storedBus = JSON.parse(sessionStorage.getItem('selectedBus'));
                 
                 busMarkers.forEach(marker => marker.remove());
@@ -774,6 +788,7 @@
 
             // Function to refresh bus data
             async function refreshBusData() {
+                console.log('[VIEWMAP] Refreshing bus data');
                 const loadingIndicator = document.getElementById('loadingIndicator');
                 loadingIndicator.style.display = 'flex';
 
@@ -790,8 +805,8 @@
 
             // Set up interval for periodic updates (every minute)
             setInterval(() => {
-                console.log('------- Minute Update -------');
-                console.log('Time:', new Date().toLocaleTimeString());
+                console.log('[VIEWMAP] ------- Minute Update -------');
+                console.log('[VIEWMAP] Time:', new Date().toLocaleTimeString());
                 refreshBusData();
             }, 60000);
 
@@ -800,9 +815,9 @@
 
             // Add this function to calculate distance and ETA with detailed logging
             function updateDistanceAndETA(userPosition, busPosition) {
-                console.log('Starting updateDistanceAndETA:', { userPosition, busPosition });
+                console.log('[VIEWMAP] Starting updateDistanceAndETA:', { userPosition, busPosition });
                 // Log input positions
-                console.log('Calculating ETA:', {
+                console.log('[VIEWMAP] Calculating ETA:', {
                     userPosition: { lat: userPosition.lat, lng: userPosition.lng },
                     busPosition: { lat: busPosition.latitude, lng: busPosition.longitude },
                     timestamp: new Date().toLocaleTimeString()
@@ -816,7 +831,7 @@
                 const distanceInKm = distanceInMeters / 1000;
 
                 // Log distance calculation
-                console.log('Distance calculation:', {
+                console.log('[VIEWMAP] Distance calculation:', {
                     distanceInMeters: Math.round(distanceInMeters),
                     distanceInKm: distanceInKm.toFixed(2)
                 });
@@ -826,7 +841,7 @@
                 const etaMinutes = Math.round((distanceInKm / averageSpeedKmH) * 60);
 
                 // Log ETA calculation
-                console.log('ETA calculation:', {
+                console.log('[VIEWMAP] ETA calculation:', {
                     averageSpeed: `${averageSpeedKmH} km/h`,
                     formula: `(${distanceInKm.toFixed(2)}km / ${averageSpeedKmH}km/h) * 60`,
                     etaMinutes: etaMinutes
@@ -846,13 +861,13 @@
                 document.getElementById('etaValue').textContent = etaText;
 
                 // Log final values
-                console.log('Updated display values:', {
+                console.log('[VIEWMAP] Updated display values:', {
                     distance: distanceText,
                     eta: etaText
                 });
 
                 return { distanceInKm, etaMinutes };
-            }
+            }   
 
             // Replace the helper function calculateDistanceAndETA
             function calculateDistanceAndETA(distanceInMeters) {
@@ -873,6 +888,7 @@
 
             // Add event listener to onboard button
             document.getElementById('onboardBtn').addEventListener('click', function() {
+                console.log('[VIEWMAP] Onboard button clicked 1');
                 // Get current bus information and distance
                 const distanceValue = document.getElementById('distanceValue').textContent;
                 const etaValue = document.getElementById('etaValue').textContent;
@@ -892,12 +908,14 @@
 
                 // Redirect to onboard.html
                 window.location.href = 'onboard.html';
+                console.log('[VIEWMAP] Redirecting to onboard.html 1');
             });
 
             // Add this code in the DOMContentLoaded event listener, after all the other initializations
 
             // Add event listener to onboard button
             document.getElementById('onboardBtn').addEventListener('click', function() {
+                console.log('[VIEWMAP] Onboard button clicked 2');
                 // Get current bus information
                 const busNumber = document.querySelector('.bus-number').textContent.replace('Bus ', '');
                 const routeName = document.querySelector('.bus-route').textContent.replace('Route: ', '');
@@ -930,6 +948,7 @@
                 // Redirect to onboard.html with a small delay to show loading
                 setTimeout(() => {
                     window.location.href = 'onboard.html';
+                    console.log('[VIEWMAP] Redirecting to onboard.html 2');
                 }, 500);
             });
         });
